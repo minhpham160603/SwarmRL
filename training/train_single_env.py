@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("../")
 import wandb
 from wandb.integration.sb3 import WandbCallback
 from stable_baselines3 import PPO, SAC, A2C
@@ -17,6 +20,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from datetime import datetime
 import torch
 import random
+
 
 using_wandb = False
 
@@ -92,14 +96,11 @@ checkpoint_callback = CheckpointCallback(
     save_vecnormalize=True,
 )
 
-path = "/home/mip012/Documents/Code/swarm-marl/src/swarm_rescue/models/11-02/xidrhr3c/model.zip"
 
 algo_map = {"PPO": PPO, "SAC": SAC, "A2C": A2C, "R_PPO": RecurrentPPO}
 model = algo_map[config["algo"]](
     env=env, tensorboard_log=f"runs/{formatted_date}/{run.id}", **kwargs_PPO
 )
-
-model.set_parameters(path)
 
 seed = 1
 random.seed(seed)

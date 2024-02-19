@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("../")
 import wandb
 from wandb.integration.sb3 import WandbCallback
 import gymnasium as gym

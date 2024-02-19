@@ -1,11 +1,8 @@
-import gymnasium as gym
-
-# from stable_baselines3 import PPO
-import gymnasium as gym
 import sys
 
 sys.path.append("../")
 
+import gymnasium as gym
 import swarm_env.single_env
 
 # import supersuit as ss
