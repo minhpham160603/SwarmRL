@@ -1,4 +1,4 @@
-# SwarmRescue RL Environment
+# SwarmRL Environment
 This project implements the reinforcement learning environment for the Swarm Rescue simulator. The implementation adheres to the [Gymnasium](https://gymnasium.farama.org/) interface for the single-agent environment, and [Pettingzoo](https://pettingzoo.farama.org/) interface for multi-agent settings. (A Gymnaisum interface version of multi-agent is provided, but the observation and action space are not within the standard spaces. That version is for custom MAPPO training using the implementation of [onpolicy](https://github.com/marlbenchmark/on-policy/tree/main)). All source code for the implementation can be found in the /swarm_env directory.
 
 # Implementation details
