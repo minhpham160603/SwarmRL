@@ -8,9 +8,7 @@ opencv-contrib-python==4.8.0.74
 matplotlib
 setuptools
 -e git+https://github.com/emmanuel-battesti/simple-playgrounds.git@swarm-rescue-v2#egg=spg
-#-e /home/battesti/projetCompetDronesDGA/simple-playgrounds
-#simple-playgrounds
-#spg
+ 
 fpdf
 pandas==2.0.3
 pathlib2

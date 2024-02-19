@@ -101,23 +101,6 @@ class MultiSwarmEnv(gym.Env):
             for _ in range(self.n_agents)
         ]
 
-        # self.observation_spaces = {
-        #     agent_id: spaces.Dict(
-        #         {
-        #             "lidar": spaces.Box(low=0, high=400, shape=(180,)),
-        #             # semantic: distance, angle, type: [0: nothing, 1: human, 2: rescue center]
-        #             "semantic": spaces.Box(
-        #                 low=-np.inf,
-        #                 high=np.inf,
-        #                 shape=(1 + self.n_targets + (self.n_agents - 1), 3),
-        #             ),
-        #             "pose": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
-        #             "velocity": spaces.Box(low=-np.inf, high=np.inf, shape=(2,)),
-        #         }
-        #     )
-        #     for agent_id in self.agents
-        # }
-
         # forward, lateral, rotation, grasper
         self.action_space = [
             spaces.Box(
@@ -125,13 +108,6 @@ class MultiSwarmEnv(gym.Env):
             )
             for agent_id in self.agents
         ]
-
-        # self.action_spaces = {
-        #     agent_id: spaces.Box(
-        #         low=np.array([-1, -1, -1, 0]), high=np.array([1, 1, 1, 1]), shape=(4,)
-        #     )
-        #     for agent_id in self.agents
-        # }
 
         self.current_rescue_count = 0
         self.current_step = 0
@@ -393,20 +369,3 @@ class MultiSwarmEnv(gym.Env):
 
     def action_space(self, agent: Any) -> Space:
         return self.action_spaces[agent]
-
-
-"""
-if self.episode_count % self.swap_env_count == 0:
-            if self.orig_map_name is None:
-                selected_map = random.choice(list(map_dict.items()))
-                self._map = selected_map[1]()
-                self.map_name = selected_map[0]
-            elif self.orig_map_name in map_dict: 
-                self.map_name = self.orig_map_name
-                self._map = map_dict[self.map_name]()
-            assert self._map._number_drones == 1
-            self._playground = self._map.construct_playground(drone_type=MidDrone)
-            self._agent = self._playground._agents[0]
-            self.gui = GuiSR(self._playground, self._map)
-        else:
-"""

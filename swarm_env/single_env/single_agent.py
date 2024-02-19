@@ -108,9 +108,9 @@ class SwarmEnv(gym.Env):
     def construct_action(self, action):
         if self.continuous_action:
             return {
-                "forward": action[0],
-                "lateral": action[1],
-                "rotation": action[2],
+                "forward": np.clip(action[0], -1, 1),
+                "lateral": np.clip(action[1], -1, 1),
+                "rotation": np.clip(action[2], -1, 1),
                 "grasper": 1 if action[3] > 0.5 else 0,
             }
         else:
@@ -165,15 +165,14 @@ class SwarmEnv(gym.Env):
         self._map.reset_drone()
 
     def reset(self, seed=None, options=None):
-        # Reinit GUI
         gc.collect()
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
         self.current_step = 0
+        self.total_rescued = 0
         observation = self._get_obs()
         info = self._get_info()
-        self.total_rescued = 0
         return observation, info
 
     def render(self):
@@ -185,7 +184,6 @@ class SwarmEnv(gym.Env):
         frame_skip = 5
         counter = 0
         done = False
-        steps = self.fixed_step
 
         person_position = self._map._wounded_persons[0].position
         previous_dist = self.get_distance(
@@ -199,12 +197,12 @@ class SwarmEnv(gym.Env):
             action[2]
         )  # to discourage the drone from rotate too much
 
-        while counter < steps and not done:
+        while counter < self.fixed_step and not done:
             cmd = {self._agent: self.construct_action(action)}
             _, _, _, done = self._playground.step(cmd)
             if (
                 self._agent.reward != 0
-            ):  # for now, this has a problem when the agent do not grasp the person
+            ):  # Warning: reward = 0 if the agent do not grasp the person when bring it back to rescue center
                 self.total_rescued += self._agent.reward
             if self.total_rescued == self._map._number_wounded_persons:
                 reward += 50

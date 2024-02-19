@@ -1,25 +1,23 @@
 import gymnasium as gym
 import sys
-
+from stable_baselines3 import PPO
 from swarm_env.single_env.single_agent import SwarmEnv
 
 env = SwarmEnv(
     render_mode="human",
     max_steps=100,
     fixed_step=20,
-    map_name="MyMapIntermediate01",
+    map_name="Easy",
 )
-# model = PPO.load(path) if path else PPO(env=env, policy="MultiInputPolicy")
+path = "./models/single_agents/51cyttcw/model.zip"
+model = PPO.load(path) if path else PPO(env=env, policy="MultiInputPolicy")
 for i in range(10):
-    # print(model.policy)
-    # raise
     obs, info = env.reset()
-    # print(info)
     score = 0
     count = 0
     while True:
-        # action, _states = model.predict(obs)
-        action = env.action_space.sample()
+        action, _states = model.predict(obs)
+        # action = env.action_space.sample()
         obs, reward, ter, trunc, info = env.step(action)
         count += 1
         score += reward

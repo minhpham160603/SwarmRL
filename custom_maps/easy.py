@@ -31,6 +31,7 @@ from custom_maps.wall_medium_1 import add_walls, add_boxes
 import numpy as np
 from .map_base_class import BaseRLMap
 
+
 class EasyMap(BaseRLMap):
     def __init__(self, zones_config: ZonesConfig = (), num_drones=1, num_persons=1):
         super().__init__(zones_config)
@@ -38,7 +39,7 @@ class EasyMap(BaseRLMap):
         self._real_time_limit = 720  # In seconds
 
         # PARAMETERS MAP
-        self._size_area = (400, 400)
+        self._size_area = (300, 300)
         self._number_drones = num_drones
         self._drones: List[DroneAbstract] = []
         self._drones_pos = []

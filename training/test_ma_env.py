@@ -3,7 +3,7 @@ from wandb.integration.sb3 import WandbCallback
 import gymnasium as gym
 from stable_baselines3 import PPO, SAC, A2C
 import gymnasium as gym
-from swarm_env.multi_env.multi_agent import MultiSwarmEnv
+from swarm_env.multi_env.multi_agent_pettingzoo import MultiSwarmEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 import numpy as np
 from utils import EpisodicRewardLogger
@@ -44,7 +44,6 @@ kwargs_PPO = {
 env = MultiSwarmEnv(**env_config)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 envs = ss.concat_vec_envs_v1(env, 4, num_cpus=1, base_class="stable_baselines3")
-# envv = SubprocVecEnv([make_env for i in range(config["num_envs"])], start_method="fork")
 
 run = wandb.init(
     project="multi-agent",
@@ -55,15 +54,7 @@ run = wandb.init(
 )
 
 
-# envv = VecVideoRecorder(
-#     envv,
-#     f"videos/{formatted_date}/{run.id}",
-#     record_video_trigger=lambda x: x % 2000 == 0,
-#     video_length=50
-# )
-
 episodic_callback = EpisodicRewardLogger(verbose=1)
-
 
 date = datetime.now()
 formatted_date = date.strftime("%d-%m")

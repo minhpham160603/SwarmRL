@@ -91,7 +91,6 @@ class SwarmDrone(DroneAbstract):
             return dist < 30
 
         idx = np.argmin([x.distance for x in semantic])
-        # dist = semantic[idx].distance
 
         if dist < 30 and str(semantic[idx].entity_type) != "TypeEntity.WOUNDED_PERSON":
             collided = True
