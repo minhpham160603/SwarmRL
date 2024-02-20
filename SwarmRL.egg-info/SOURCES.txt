@@ -1,0 +1,7 @@
+README.md
+setup.py
+SwarmRL.egg-info/PKG-INFO
+SwarmRL.egg-info/SOURCES.txt
+SwarmRL.egg-info/dependency_links.txt
+SwarmRL.egg-info/top_level.txt
+src/__init__.py
