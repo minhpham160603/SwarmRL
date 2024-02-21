@@ -259,8 +259,8 @@ class DroneSemanticSensor(SemanticSensor):
             angle = self.ray_angles[index]
 
             # We remove the walls, so that it is not too easy
-            # if entity_type == self.TypeEntity.WALL:
-            #     continue
+            if entity_type == self.TypeEntity.WALL:
+                continue
 
             new_detection = self.Data(
                 distance=distance,

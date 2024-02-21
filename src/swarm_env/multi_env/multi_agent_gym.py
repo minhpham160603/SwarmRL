@@ -216,12 +216,20 @@ class MultiSwarmEnv(gym.Env):
         if self.render_mode == "rgb_array":
             return self._render_frame()
 
+    def get_map(self):
+        return self._map
+
     def reward(self, agent, action):
         rew = -np.abs(action[2])
         if agent.is_collided():
             rew -= 1
         if agent.touch_human():
             rew += 1
+        for human in self._map._wounded_persons:
+            magnets = set(human.grasped_by)
+            if len(magnets) > 1 and agent.base.grasper in magnets:
+                rew -= 3
+                # print("Conflict!!")
         return rew
 
     def step(self, actions):
