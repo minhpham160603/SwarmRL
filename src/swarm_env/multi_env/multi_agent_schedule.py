@@ -93,7 +93,7 @@ class MultiSwarmEnv(gym.Env):
         ### OBSERVATION
 
         """
-        Lidar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
+        L3idar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
         """
         single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5
         self.observation_space = [
@@ -150,7 +150,7 @@ class MultiSwarmEnv(gym.Env):
             "rotation": np.clip(action[2], -1, 1),
             "grasper": 1 if action[3] > 0.5 else 0,
         }
-        
+
     def observe(self, agent_id):
         agent = self.name_to_agent[agent_id]
         observation = {}
@@ -186,7 +186,7 @@ class MultiSwarmEnv(gym.Env):
         for name in self.agents:
             observations.append(self.observe(agent_id=name))
         return observations
-    
+
     def seed(self, seed=None):
         if seed is None:
             np.random.seed(1)
@@ -274,12 +274,12 @@ class MultiSwarmEnv(gym.Env):
 
         while counter < steps and not done:
             _, _, _, done = self._playground.step(commands)
-            
+
             for i, agent in enumerate(self._agents):
                 if agent.reward != 0:
                     self.current_rescue_count += agent.reward
                     rewards[i] += 50
-                    
+
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
                 self.current_rescue_count = 0

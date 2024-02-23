@@ -13,7 +13,7 @@ from spg_overlay.entities.drone_abstract import (
 from spg_overlay.entities.rescue_center import (
     wounded_rescue_center_collision,
 )
- 
+
 from spg_overlay.entities.wounded_person import WoundedPerson
 from spg_overlay.gui_map.closed_playground import ClosedPlayground
 from spg_overlay.gui_map.map_abstract import MapAbstract
@@ -31,6 +31,7 @@ class BaseRLMap(MapAbstract):
     - self._rescue_center_pos and self._rescue_center
     - self._wounded_persons_pos and _wounded_persons
     """
+
     def __init__(self, zones_config: ZonesConfig = ()):
         super().__init__(zones_config)
 
@@ -69,7 +70,7 @@ class BaseRLMap(MapAbstract):
             pos = (new_position, 0)
             self._wounded_persons_pos[i] = pos
             self._wounded_persons[i].initial_coordinates = pos
-    
+
     def add_wall_and_box(self, playground):
         pass
 

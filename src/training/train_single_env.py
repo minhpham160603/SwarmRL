@@ -13,16 +13,16 @@ from stable_baselines3.common.vec_env import (
 )
 from stable_baselines3.common.callbacks import CallbackList
 import numpy as np
-from utils import EpisodicRewardLogger, DummyRun
+from utils import EpisodicRewardLogger, DummyRun, AverageReturnCallback
 import torch.nn as nn
 from sb3_contrib import RecurrentPPO
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from datetime import datetime
 import torch
 import random
 
 
-using_wandb = False
+using_wandb = True
 
 config = {
     "algo": "PPO",
@@ -39,7 +39,7 @@ env_config = {
     "fixed_step": 20,
 }
 
-kwargs_PPO = {
+kwargs_policy = {
     "policy": "MultiInputPolicy",
     "policy_kwargs": {
         "net_arch": {"pi": [16, 32, 64, 32, 16], "vf": [16, 32, 64, 32, 16]},
@@ -47,6 +47,19 @@ kwargs_PPO = {
         "ortho_init": True,
     },
     "verbose": 1,
+}
+
+wandb_config = {
+    "exp_name": "test_step",
+    "map": env_config["map_name"],
+    "max_step": env_config["max_steps"],
+    "fix_step": env_config["fixed_step"],
+    "algo": config["algo"],
+    "policy_kwarg": (
+        kwargs_policy["policy_kwargs"] if "policy_kwargs" in kwargs_policy else None
+    ),
+    "map_size": (300, 300),
+    "min_gen_dist": 120,
 }
 
 # Get today's date
@@ -60,27 +73,35 @@ def make_env():
     return env
 
 
+seed = 1
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+
 env = SubprocVecEnv([make_env for i in range(config["num_envs"])], start_method="fork")
+
 
 if using_wandb:
     run = wandb.init(
-        project="swarm_env_t2",
-        config=config,
+        project="single-env-v2",
+        config=wandb_config,
         sync_tensorboard=True,
         monitor_gym=True,
         save_code=True,
+        name=f"{wandb_config['exp_name']}_{config['algo']}_seed{seed}",
+        # group=config["algo"],
     )
 else:
     run = DummyRun()
 
-env = VecVideoRecorder(
-    env,
-    f"videos/{formatted_date}/{run.id}",
-    record_video_trigger=lambda x: x % 5_000 == 0,
-    video_length=config["max_steps"],
-)
+# env = VecVideoRecorder(
+#     env,
+#     f"videos/{formatted_date}/{run.id}",
+#     record_video_trigger=lambda x: x % 5_000 == 0,
+#     video_length=config["max_steps"],
+# )
 
-episodic_callback = EpisodicRewardLogger(verbose=1)
+average_callback = AverageReturnCallback(verbose=1, n_episodes=100)
 wandbcallback = WandbCallback(
     gradient_save_freq=0,
     model_save_path=f"models/{formatted_date}/{run.id}",
@@ -96,25 +117,30 @@ checkpoint_callback = CheckpointCallback(
     save_vecnormalize=True,
 )
 
+eval_callback = EvalCallback(
+    env,
+    best_model_save_path=f"./logs/{formatted_date}/{run.id}",
+    log_path=f"./logs/{formatted_date}/{run.id}",
+    eval_freq=10_000,
+    deterministic=True,
+    render=False,
+)
+
 
 algo_map = {"PPO": PPO, "SAC": SAC, "A2C": A2C, "R_PPO": RecurrentPPO}
 model = algo_map[config["algo"]](
-    env=env, tensorboard_log=f"runs/{formatted_date}/{run.id}", **kwargs_PPO
+    env=env, tensorboard_log=f"runs/{formatted_date}/{run.id}", **kwargs_policy
 )
 
-seed = 1
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-
-model.learn(
-    total_timesteps=config["total_timesteps"],
-    callback=CallbackList([wandbcallback, episodic_callback, checkpoint_callback]),  # ,
-    progress_bar=True,
-)
 
 print("ALGO ", config["algo"])
 print(model.policy)
+
+model.learn(
+    total_timesteps=config["total_timesteps"],
+    callback=CallbackList([wandbcallback, average_callback, eval_callback]),
+    progress_bar=True,
+)
 
 env.close()
 run.finish()

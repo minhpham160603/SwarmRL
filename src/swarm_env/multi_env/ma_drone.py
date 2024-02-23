@@ -72,11 +72,10 @@ class MultiAgentDrone(DroneAbstract):
         # Command
         self.cmd_move = {"forward": 0, "lateral": 0, "rotation": 0}
         self.cmd_grasper = 0
+        self.state = {"message": None}
 
         # Com
         self.msg_data = None
-
-        self.state = "init"
 
         # ray angles of the sensors (constant)
         self.lidar_ray_angles = self.lidar().ray_angles
@@ -99,14 +98,17 @@ class MultiAgentDrone(DroneAbstract):
 
     def define_message_for_all(self):
         # msg_data before start is assigned in the init state
-        if not self.droneReady:
-            return None
+        # if not self.droneReady:
+        #     return None
 
-        # self.msg_data = DroneMsg(id_msg=self.identifier,
-        #                          pose=self.estimated_pose,
-        #                          occupancy_grid_data=self.grid.grid)
+        # self.msg_data = DroneMsg(
+        #     id_msg=self.identifier,
+        #     pose=self.estimated_pose,
+        #     occupancy_grid_data=self.grid.grid,
+        # )
+        msg_data = self.true_position()
 
-        return self.msg_data
+        return msg_data
 
     def is_collided(self):
         """

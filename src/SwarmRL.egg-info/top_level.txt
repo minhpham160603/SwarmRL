@@ -1,5 +1,0 @@
-custom_maps
-demos
-resources
-spg_overlay
-swarm_env

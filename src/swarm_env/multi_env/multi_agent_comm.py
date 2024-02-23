@@ -89,22 +89,30 @@ class MultiSwarmEnv(gym.Env):
         self.name_to_agent = {str(i): a for i, a in enumerate(self._agents)}
         self.agents = list(self.name_to_agent.keys())
         self.fixed_step = fixed_step
+        self.persons = self._map._wounded_persons
 
         ### OBSERVATION
 
         """
         Lidar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
         """
-        single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5
+        single_observation_dim = (
+            180
+            + (self.n_targets + self.n_agents) * 3
+            + 5
+            + (
+                self.n_agents * self.n_targets
+            )  # encoding for the message from other drones
+        )
         self.observation_space = [
-            spaces.Box(low=-np.inf, high=np.inf, shape=(single_action_dim,))
+            spaces.Box(low=-np.inf, high=np.inf, shape=(single_observation_dim,))
             for _ in range(self.n_agents)
         ]
         self.share_observation_space = [
             spaces.Box(
                 low=-np.inf,
                 high=+np.inf,
-                shape=(single_action_dim * self.n_agents,),
+                shape=(single_observation_dim * self.n_agents,),
                 dtype=np.float32,
             )
             for _ in range(self.n_agents)
@@ -113,7 +121,9 @@ class MultiSwarmEnv(gym.Env):
         # forward, lateral, rotation, grasper
         self.action_space = [
             spaces.Box(
-                low=np.array([-1, -1, -1, 0]), high=np.array([1, 1, 1, 1]), shape=(4,)
+                low=np.array([-1, -1, -1, 0] + [0] * self.n_targets),
+                high=np.array([1, 1, 1, 1] + [1] * self.n_targets),
+                shape=(4 + self.n_targets,),
             )
             for agent_id in self.agents
         ]
@@ -144,13 +154,16 @@ class MultiSwarmEnv(gym.Env):
         return np.array(state_array)
 
     def construct_action(self, action):
+        com_target = np.zeros(MAX_NUM_PERSONS)
+        idx = np.argmax(action[4:])
+        com_target[idx] = 1
         return {
             "forward": np.clip(action[0], -1, 1),
             "lateral": np.clip(action[1], -1, 1),
             "rotation": np.clip(action[2], -1, 1),
             "grasper": 1 if action[3] > 0.5 else 0,
-        }
-        
+        }, com_target
+
     def observe(self, agent_id):
         agent = self.name_to_agent[agent_id]
         observation = {}
@@ -179,6 +192,15 @@ class MultiSwarmEnv(gym.Env):
 
         observation["semantic"] = semantic
 
+        observation["message"] = np.zeros((self.n_agents, self.n_targets))
+        for i, agent in enumerate(self._agents):
+            if str(i) == agent_id:
+                continue
+            observation["message"][i] = agent.state["message"]
+
+        # print(agent_id)
+        # print(observation["message"])
+        # input()
         return self.flatten_obs(observation)
 
     def _get_obs(self):
@@ -186,7 +208,7 @@ class MultiSwarmEnv(gym.Env):
         for name in self.agents:
             observations.append(self.observe(agent_id=name))
         return observations
-    
+
     def seed(self, seed=None):
         if seed is None:
             np.random.seed(1)
@@ -221,7 +243,8 @@ class MultiSwarmEnv(gym.Env):
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
-
+        for agent in self._agents:
+            agent.state["message"] = np.zeros((self.n_targets,))
         self.current_step = 0
         observation = self._get_obs()
         info = self._get_info()
@@ -266,7 +289,8 @@ class MultiSwarmEnv(gym.Env):
 
         commands = {}
         for i, agent in enumerate(self._agents):
-            move = self.construct_action(actions[i])
+            move, msg = self.construct_action(actions[i])
+            agent.state["message"] = msg
             commands[agent] = move
 
         terminated, truncated = False, False
@@ -274,12 +298,12 @@ class MultiSwarmEnv(gym.Env):
 
         while counter < steps and not done:
             _, _, _, done = self._playground.step(commands)
-            
+
             for i, agent in enumerate(self._agents):
                 if agent.reward != 0:
                     self.current_rescue_count += agent.reward
                     rewards[i] += 50
-                    
+
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
                 self.current_rescue_count = 0

@@ -221,6 +221,9 @@ class DroneSemanticSensor(SemanticSensor):
         new_values = []
         og_values = []
 
+        # print(self._values)
+        # input()
+
         for index, id_detection in enumerate(id_detections):
             if id_detection == 0:
                 continue
