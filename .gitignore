@@ -2,3 +2,10 @@ __pycache__
 scp.py
 .env
 test_venv/
+env/
+build/
+checkpoints/
+dist/
+runs/
+videos/
+wandb/

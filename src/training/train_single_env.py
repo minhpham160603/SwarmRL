@@ -22,7 +22,7 @@ import torch
 import random
 
 
-using_wandb = False
+using_wandb = True
 
 config = {
     "algo": "PPO",
