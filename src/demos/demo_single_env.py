@@ -6,6 +6,7 @@ from guppy import hpy
 import arcade
 from tqdm import tqdm
 
+
 env = SwarmEnv(
     # render_mode="human",
     max_steps=100,
