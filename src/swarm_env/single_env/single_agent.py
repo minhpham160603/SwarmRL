@@ -11,6 +11,7 @@ from custom_maps.corridor import Corridor
 from custom_maps.multiple_rooms import MultiRoom
 from custom_maps.easy import EasyMap
 from swarm_env.constants import *
+import arcade
 
 """
 Environment for single agent
@@ -64,6 +65,7 @@ class SwarmEnv(gym.Env):
         max_steps=100,
         continuous_action=True,
         fixed_step=20,
+        use_exp_map=False,
     ):
         if map_name in map_dict:
             self.map_name = map_name
@@ -74,11 +76,13 @@ class SwarmEnv(gym.Env):
         self.agent_name = "agent_0"
         self.continuous_action = continuous_action
         assert self._map._number_drones == 1
-        self._playground = self._map.construct_playground(drone_type=SwarmDrone)
-        self._agent = self._playground._agents[0]
+
+        self._playground = None
+        self._agent = None
+
         self.fixed_step = fixed_step
         self.total_rescued = 0
-        self.map_size = self._map._size_area
+        self.map_size = None
 
         self.observation_space = spaces.Dict(
             {
@@ -100,9 +104,11 @@ class SwarmEnv(gym.Env):
         self.current_step = 0
         self.max_steps = max_steps
         self.last_exp_score = None
+        self.use_exp_map = use_exp_map
+        self.ep_count = 0
 
         self.render_mode = render_mode
-        self.gui = GuiSR(self._playground, self._map)
+        self.gui = None
         self.clock = None
 
     def construct_action(self, action):
@@ -164,7 +170,23 @@ class SwarmEnv(gym.Env):
         self._map.reset_wounded_person()
         self._map.reset_drone()
 
+    def re_init(self):
+        self._map = self._map = map_dict[self.map_name]()
+        self.map_size = self._map._size_area
+
+        self._playground = self._map.construct_playground(drone_type=SwarmDrone)
+        self._agent = self._playground._agents[0]
+        self.gui = GuiSR(self._playground, self._map)
+
     def reset(self, seed=None, options=None):
+        if self.ep_count % 30 == 0:
+            arcade.close_window()
+            del self._map
+            del self._agent
+            del self._playground
+            del self.gui
+            self.re_init()
+        self.ep_count += 1
         gc.collect()
         self._playground.window.switch_to()
         self.reset_map()
@@ -225,15 +247,16 @@ class SwarmEnv(gym.Env):
         self.current_step += 1
 
         # REWARDED WHEN EXPLORE MORE
-        current_exp_score = self._map.explored_map.score()
-        if self.last_exp_score is not None:
-            delta_score = current_exp_score - self.last_exp_score
-        else:
-            delta_score = 0
-        reward += 50 * delta_score
+        if self.use_exp_map:
+            current_exp_score = self._map.explored_map.score()
+            if self.last_exp_score is not None:
+                delta_score = current_exp_score - self.last_exp_score
+            else:
+                delta_score = 0
+            reward += 50 * delta_score
 
-        self.last_exp_score = current_exp_score
-        self.gui.update_explore_map()
+            self.last_exp_score = current_exp_score
+            self.gui.update_explore_map()
 
         if self.current_step >= self.max_steps:
             truncated = True
@@ -264,3 +287,4 @@ class SwarmEnv(gym.Env):
     def close(self):
         gc.collect()
         cv2.destroyAllWindows()
+        arcade.close_window()

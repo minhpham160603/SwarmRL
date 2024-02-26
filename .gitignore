@@ -19,7 +19,8 @@ logs
 *.so
 training/logs/
 training/checkpoints/
-training/models/
-training/runs/
+models/
+runs/
 training/videos/
 training/wandb/
+mprofile*

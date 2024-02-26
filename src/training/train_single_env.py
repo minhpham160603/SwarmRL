@@ -22,11 +22,11 @@ import torch
 import random
 
 
-using_wandb = True
+using_wandb = False
 
 config = {
     "algo": "PPO",
-    "total_timesteps": 500_000,
+    "total_timesteps": 100_000,
     "max_steps": 100,
     "num_envs": 4,
 }
@@ -102,10 +102,14 @@ else:
 # )
 
 average_callback = AverageReturnCallback(verbose=1, n_episodes=100)
-wandbcallback = WandbCallback(
-    gradient_save_freq=0,
-    model_save_path=f"models/{formatted_date}/{run.id}",
-    verbose=2,
+wandbcallback = (
+    WandbCallback(
+        gradient_save_freq=0,
+        model_save_path=f"models/{formatted_date}/{run.id}",
+        verbose=2,
+    )
+    if using_wandb
+    else None
 )
 
 # Save a checkpoint every 1000 steps
@@ -132,13 +136,17 @@ model = algo_map[config["algo"]](
     env=env, tensorboard_log=f"runs/{formatted_date}/{run.id}", **kwargs_policy
 )
 
+callbacklist = [average_callback, eval_callback]
+if using_wandb:
+    callbacklist.append(wandbcallback)
+callbacklist = CallbackList(callbacklist)
 
 print("ALGO ", config["algo"])
 print(model.policy)
 
 model.learn(
     total_timesteps=config["total_timesteps"],
-    callback=CallbackList([wandbcallback, average_callback, eval_callback]),
+    callback=callbacklist,
     progress_bar=True,
 )
 

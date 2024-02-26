@@ -14,7 +14,7 @@ from typing import Any, Dict, Generic, Iterable, Iterator, TypeVar
 from pettingzoo import ParallelEnv
 from gymnasium.utils import EzPickle, seeding
 from swarm_env.constants import *
-
+import arcade
 
 """
 Environment for multi agent
@@ -60,6 +60,7 @@ class MultiSwarmEnv(gym.Env):
         continuous_action=True,
         fixed_step=20,
         share_reward=True,
+        use_exp_map=False,
     ):
         EzPickle.__init__(
             self,
@@ -74,21 +75,22 @@ class MultiSwarmEnv(gym.Env):
 
         if map_name in map_dict:
             self.map_name = map_name
-            self._map = map_dict[map_name](num_drones=n_agents, num_persons=n_targets)
         else:
             raise Exception("Invalid map name")
 
-        self.map_size = self._map.size_area
+        self._map = None
+        self.map_size = None
         self.continuous_action = continuous_action
         self.share_reward = share_reward
         self.n_agents = n_agents
         self.n_targets = n_targets
 
-        self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)
-        self._agents = self._playground._agents
-        self.name_to_agent = {str(i): a for i, a in enumerate(self._agents)}
-        self.agents = list(self.name_to_agent.keys())
+        self._playground = None
+        self._agents = None
+        self.agents = None
+
         self.fixed_step = fixed_step
+        self.use_exp_map = use_exp_map
 
         ### OBSERVATION
 
@@ -115,15 +117,16 @@ class MultiSwarmEnv(gym.Env):
             spaces.Box(
                 low=np.array([-1, -1, -1, 0]), high=np.array([1, 1, 1, 1]), shape=(4,)
             )
-            for agent_id in self.agents
+            for _ in range(self.n_agents)
         ]
 
         self.current_rescue_count = 0
         self.current_step = 0
+        self.ep_count = 0
         self.max_episode_steps = max_episode_steps
         self.last_exp_score = None
         self.render_mode = render_mode
-        self.gui = GuiSR(self._playground, self._map)
+        self.gui = None
         self.clock = None
 
     def get_distance(self, pos_a, pos_b):
@@ -150,9 +153,9 @@ class MultiSwarmEnv(gym.Env):
             "rotation": np.clip(action[2], -1, 1),
             "grasper": 1 if action[3] > 0.5 else 0,
         }
-        
+
     def observe(self, agent_id):
-        agent = self.name_to_agent[agent_id]
+        agent = self._agents[agent_id]
         observation = {}
         observation["lidar"] = (
             agent.lidar_values()[:-1].astype(np.float32) / LIDAR_MAX_RANGE
@@ -183,10 +186,10 @@ class MultiSwarmEnv(gym.Env):
 
     def _get_obs(self):
         observations = []
-        for name in self.agents:
-            observations.append(self.observe(agent_id=name))
+        for idx in self.agents:
+            observations.append(self.observe(agent_id=idx))
         return observations
-    
+
     def seed(self, seed=None):
         if seed is None:
             np.random.seed(1)
@@ -198,9 +201,7 @@ class MultiSwarmEnv(gym.Env):
         info["map_name"] = self.map_name
         info["wounded_people_pos"] = self._map._wounded_persons_pos
         info["rescue_zone"] = self._map._rescue_center_pos
-        info["drones_true_pos"] = {
-            agent_id: self.name_to_agent[agent_id].true_position()
-        }
+        info["drones_true_pos"] = {agent_id: self._agents[agent_id].true_position()}
         return info
 
     def _get_info(self):
@@ -215,7 +216,26 @@ class MultiSwarmEnv(gym.Env):
         self._map.reset_wounded_person()
         self._map.reset_drone()
 
+    def re_init(self):
+        self._map = map_dict[self.map_name](
+            num_drones=self.n_agents, num_persons=self.n_targets
+        )
+        self.map_size = self._map._size_area
+
+        self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)
+        self._agents = self._map.drones
+        self.agents = [i for i in range(self.n_agents)]
+        self.gui = GuiSR(self._playground, self._map)
+
     def reset(self, seed=None, options=None):
+        if self.ep_count % 30 == 0:
+            arcade.close_window()
+            del self._map
+            del self._agents
+            del self._playground
+            del self.gui
+            self.re_init()
+        self.ep_count += 1
         # Reinit GUI
         gc.collect()
         self._playground.window.switch_to()
@@ -274,12 +294,12 @@ class MultiSwarmEnv(gym.Env):
 
         while counter < steps and not done:
             _, _, _, done = self._playground.step(commands)
-            
+
             for i, agent in enumerate(self._agents):
                 if agent.reward != 0:
                     self.current_rescue_count += agent.reward
                     rewards[i] += 50
-                    
+
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
                 self.current_rescue_count = 0
@@ -315,18 +335,19 @@ class MultiSwarmEnv(gym.Env):
 
         shared_reward -= delta_distances / 5
 
-        current_exp_score = self._map.explored_map.score()
-        if self.last_exp_score is not None:
-            delta_exp_score = current_exp_score - self.last_exp_score
-        else:
-            delta_exp_score = 0
+        if self.use_exp_map:
+            current_exp_score = self._map.explored_map.score()
+            if self.last_exp_score is not None:
+                delta_exp_score = current_exp_score - self.last_exp_score
+            else:
+                delta_exp_score = 0
 
-        self.last_exp_score = current_exp_score
-        # print(f"score {delta_exp_score}, {current_exp_score}")
-        self.gui.update_explore_map()
+            self.last_exp_score = current_exp_score
+            # print(f"score {delta_exp_score}, {current_exp_score}")
+            self.gui.update_explore_map()
 
-        # REWARD
-        shared_reward += 50 * delta_exp_score
+            # REWARD
+            shared_reward += 50 * delta_exp_score
 
         if self.share_reward:
             final_rewards = [[shared_reward]] * self.n_agents
@@ -354,14 +375,14 @@ class MultiSwarmEnv(gym.Env):
             for name in self.agents:
                 color = (255, 0, 0)
                 offset = 10
-                agent = self.name_to_agent[name]
+                agent = self._agents[name]
                 pt1 = (
                     agent.true_position()
                     + np.array(self.map_size) / 2
                     + np.array([offset, offset])
                 )
                 org = (int(pt1[0]), self.map_size[1] - int(pt1[1]))
-                str_id = name
+                str_id = str(name)
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 image = cv2.putText(
                     image,
@@ -389,6 +410,7 @@ class MultiSwarmEnv(gym.Env):
     def close(self):
         gc.collect()
         cv2.destroyAllWindows()
+        arcade.close_window()
 
     def observation_space(self, agent: Any) -> Space:
         return self.observation_spaces[agent]
