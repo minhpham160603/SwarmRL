@@ -182,10 +182,6 @@ class SwarmEnv(gym.Env):
     def step(self, action):
         self._playground.window.switch_to()
 
-        for human in self._map._wounded_persons:
-            print(human.grasped_by)
-            print(self._agent.base.grasper)
-
         frame_skip = 5
         counter = 0
         done = False

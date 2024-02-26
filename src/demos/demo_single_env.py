@@ -9,7 +9,7 @@ env = SwarmEnv(
     fixed_step=20,
     map_name="Easy",
 )
-path = "models/single_agents/51cyttcw/model"
+path = "../../models/single_agents/51cyttcw/model"
 model = PPO.load(path) if path else PPO(env=env, policy="MultiInputPolicy")
 for i in range(10):
     obs, info = env.reset()
