@@ -179,7 +179,7 @@ class SwarmEnv(gym.Env):
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        if self.ep_count % 30 == 0:
+        if self.ep_count == 0:
             arcade.close_window()
             del self._map
             del self._agent

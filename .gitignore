@@ -21,6 +21,9 @@ training/logs/
 training/checkpoints/
 models/
 runs/
-training/videos/
-training/wandb/
+videos/
+wandb/
+logs/
+models/
 mprofile*
+mprof/
