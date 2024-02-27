@@ -1,6 +1,6 @@
 data_dir="./mprof/data"
 img_dir="./mprof/result"
-file_name="run_2_no_del_testing"
+file_name="run_7_del_5"
 
 if [ -d ${data_dir} ]; then
     echo Logging to ${data_dir}
@@ -15,6 +15,8 @@ else
     echo Making dir 
     mkdir ${img_dir}
 fi
+
+echo ${file_name}
 
 mprof run -o ${data_dir}/${file_name} demo_single_env.py 
 

@@ -6,7 +6,8 @@ from guppy import hpy
 import arcade
 from tqdm import tqdm
 
-
+total = 200
+pbar = tqdm(total=total)
 env = SwarmEnv(
     # render_mode="human",
     max_steps=100,
@@ -15,7 +16,7 @@ env = SwarmEnv(
 )
 # path = "../../models/single_agents/51cyttcw/model"
 # model = PPO.load(path) if path else PPO(env=env, policy="MultiInputPolicy")
-for i in range(200):
+for i in range(total):
     obs, info = env.reset()
     score = 0
     count = 0
@@ -29,5 +30,6 @@ for i in range(200):
         if trunc or ter:
             # print(f"Truc {trunc}, ter: {ter}, return: {score}, steps: {count}")
             break
+    pbar.update(1)
 
 env.close()
