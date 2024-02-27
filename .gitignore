@@ -11,3 +11,4 @@ videos/
 wandb/
 logs/
 models/
+mprof/
