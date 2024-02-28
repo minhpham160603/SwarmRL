@@ -181,7 +181,9 @@ class MultiSwarmEnv(gym.Env):
             semantic[1 + self.n_targets + i] = drone[i]
 
         observation["semantic"] = semantic
-
+        print(agent_id)
+        print(semantic)
+        input()
         flatten_obs = self.flatten_obs(observation)
         del observation
 
@@ -367,32 +369,57 @@ class MultiSwarmEnv(gym.Env):
 
         return observations, final_rewards, dones, infos
 
+    def draw_index(self, image, pos_list):
+        for i, pos in enumerate(pos_list):
+            color = (255, 0, 0)
+            offset = 10
+            pt1 = pos + np.array(self.map_size) / 2 + np.array([offset, offset])
+            org = (int(pt1[0]), self.map_size[1] - int(pt1[1]))
+            str_id = str(i)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            image = cv2.putText(
+                image,
+                str_id,
+                org,
+                fontFace=font,
+                fontScale=0.4,
+                color=color,
+                thickness=1,
+            )
+        return image
+
     def _render_frame(self):
         # Capture the frame
         image = self.gui.get_playground_image()
 
         if self.render_mode == "human":
-            for name in self.agents:
-                color = (255, 0, 0)
-                offset = 10
-                agent = self._agents[name]
-                pt1 = (
-                    agent.true_position()
-                    + np.array(self.map_size) / 2
-                    + np.array([offset, offset])
-                )
-                org = (int(pt1[0]), self.map_size[1] - int(pt1[1]))
-                str_id = str(name)
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                image = cv2.putText(
-                    image,
-                    str_id,
-                    org,
-                    fontFace=font,
-                    fontScale=0.4,
-                    color=color,
-                    thickness=1,
-                )
+            drone_pos = [agent.true_position() for agent in self._agents]
+            image = self.draw_index(image, drone_pos)
+            human_pos = [
+                np.array(person.position) for person in self._map._wounded_persons
+            ]
+            image = self.draw_index(image, human_pos)
+            # for name in self.agents:
+            #     color = (255, 0, 0)
+            #     offset = 10
+            #     agent = self._agents[name]
+            # pt1 = (
+            #     agent.true_position()
+            #     + np.array(self.map_size) / 2
+            #     + np.array([offset, offset])
+            # )
+            #     org = (int(pt1[0]), self.map_size[1] - int(pt1[1]))
+            #     str_id = str(name)
+            #     font = cv2.FONT_HERSHEY_SIMPLEX
+            #     image = cv2.putText(
+            #         image,
+            #         str_id,
+            #         org,
+            #         fontFace=font,
+            #         fontScale=0.4,
+            #         color=color,
+            #         thickness=1,
+            #     )
             if self.clock is None:
                 self.clock = pygame.time.Clock()
             cv2.imshow("Playground Image", image)

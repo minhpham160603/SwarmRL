@@ -63,13 +63,14 @@ class SwarmEnv(gym.Env):
         map_name="Easy",
         render_mode="rgb_array",
         max_steps=100,
+        n_targets=1,
         continuous_action=True,
         fixed_step=20,
         use_exp_map=False,
     ):
         if map_name in map_dict:
             self.map_name = map_name
-            self._map = map_dict[map_name]()
+            self._map = map_dict[map_name](num_persons=n_targets)
         else:
             raise Exception("Invalid map name")
 
@@ -79,6 +80,7 @@ class SwarmEnv(gym.Env):
 
         self._playground = None
         self._agent = None
+        self.n_targets = n_targets
 
         self.fixed_step = fixed_step
         self.total_rescued = 0
@@ -88,10 +90,11 @@ class SwarmEnv(gym.Env):
             {
                 "lidar": spaces.Box(low=0, high=10, shape=(180,)),
                 "semantic": spaces.Box(
-                    low=-np.inf, high=np.inf, shape=((1 + MAX_NUM_PERSONS), 3)
+                    low=-np.inf, high=np.inf, shape=((1 + self.n_targets), 3)
                 ),
                 "pose": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
                 "velocity": spaces.Box(low=-np.inf, high=np.inf, shape=(2,)),
+                "grasper": spaces.Box(low=0, high=1, shape=(1,)),
             }
         )
 
@@ -147,13 +150,15 @@ class SwarmEnv(gym.Env):
             (normalized_position, [self._agent.true_angle()]), axis=0
         ).astype(np.float32)
 
-        semantic = np.zeros((1 + MAX_NUM_PERSONS, 3)).astype(np.float32)
+        semantic = np.zeros((1 + self.n_targets, 3)).astype(np.float32)
         data = self._agent.process_special_semantic()
 
         for i in range(min(len(data), len(semantic))):
             semantic[i] = data[i]
 
         observation["semantic"] = semantic
+
+        observation["grasper"] = [1] if len(self._agent.grasped_entities()) > 0 else [0]
         return observation
 
     def _get_info(self):
@@ -171,7 +176,7 @@ class SwarmEnv(gym.Env):
         self._map.reset_drone()
 
     def re_init(self):
-        self._map = self._map = map_dict[self.map_name]()
+        self._map = self._map = map_dict[self.map_name](num_persons=self.n_targets)
         self.map_size = self._map._size_area
 
         self._playground = self._map.construct_playground(drone_type=SwarmDrone)

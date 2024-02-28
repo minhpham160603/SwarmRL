@@ -5,16 +5,19 @@ from swarm_env.single_env.single_agent import SwarmEnv
 import arcade
 from tqdm import tqdm
 
+n_targets = 3
+total_ep = 10
+
 env = SwarmEnv(
-    # render_mode="human",
+    render_mode="human",
     max_steps=100,
     fixed_step=20,
+    n_targets=n_targets,
     map_name="Easy",
 )
-# path = "../../models/single_agents/51cyttcw/model.zip"
-# model = PPO.load(path) if path else PPO(env=env, policy="MultiInputPolicy")
-pbar = tqdm(total=200)
-for i in range(200):
+
+# pbar = tqdm(total=total_ep)
+for i in range(total_ep):
     obs, info = env.reset()
     score = 0
     count = 0
@@ -22,11 +25,11 @@ for i in range(200):
         # action, _states = model.predict(obs)
         action = env.action_space.sample()
         obs, reward, ter, trunc, info = env.step(action)
-        # print(obs["semantic"])
+        print(obs["grasper"])
         count += 1
         score += reward
         if trunc or ter:
-            # print(f"Truc {trunc}, ter: {ter}, return: {score}, steps: {count}")
+            print(f"Truc {trunc}, ter: {ter}, return: {score}, steps: {count}")
             break
-    pbar.update()
+    # pbar.update()
 env.close()
