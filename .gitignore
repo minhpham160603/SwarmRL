@@ -24,3 +24,4 @@ runs/
 training/videos/
 training/wandb/
 mprofile*
+mprof/

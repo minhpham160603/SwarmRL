@@ -15,6 +15,7 @@ from pettingzoo import ParallelEnv
 from gymnasium.utils import EzPickle, seeding
 from swarm_env.constants import *
 import arcade
+from memory_profiler import profile
 
 """
 Environment for multi agent
@@ -87,7 +88,7 @@ class MultiSwarmEnv(gym.Env):
 
         self._playground = None
         self._agents = None
-        self.agents = None
+        self.agents = [i for i in range(self.n_agents)]
 
         self.fixed_step = fixed_step
         self.use_exp_map = use_exp_map
@@ -142,8 +143,7 @@ class MultiSwarmEnv(gym.Env):
         observations = self._get_obs()
         state_array = []
         for agent_id in self.agents:
-            obs_array = self.flatten_obs(observations[agent_id])
-            state_array.append(obs_array)
+            state_array.append(observations[agent_id])
         return np.array(state_array)
 
     def construct_action(self, action):
@@ -182,7 +182,10 @@ class MultiSwarmEnv(gym.Env):
 
         observation["semantic"] = semantic
 
-        return self.flatten_obs(observation)
+        flatten_obs = self.flatten_obs(observation)
+        del observation
+
+        return flatten_obs
 
     def _get_obs(self):
         observations = []
@@ -221,14 +224,12 @@ class MultiSwarmEnv(gym.Env):
             num_drones=self.n_agents, num_persons=self.n_targets
         )
         self.map_size = self._map._size_area
-
         self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)
         self._agents = self._map.drones
-        self.agents = [i for i in range(self.n_agents)]
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        if self.ep_count % 30 == 0:
+        if self.ep_count == 0:
             arcade.close_window()
             del self._map
             del self._agents
@@ -236,12 +237,12 @@ class MultiSwarmEnv(gym.Env):
             del self.gui
             self.re_init()
         self.ep_count += 1
-        # Reinit GUI
         gc.collect()
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
 
+        self.current_rescue_count = 0
         self.current_step = 0
         observation = self._get_obs()
         info = self._get_info()
@@ -345,7 +346,6 @@ class MultiSwarmEnv(gym.Env):
             self.last_exp_score = current_exp_score
             # print(f"score {delta_exp_score}, {current_exp_score}")
             self.gui.update_explore_map()
-
             # REWARD
             shared_reward += 50 * delta_exp_score
 

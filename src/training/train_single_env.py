@@ -5,7 +5,7 @@ import wandb
 from wandb.integration.sb3 import WandbCallback
 from stable_baselines3 import PPO, SAC, A2C
 import gymnasium as gym
-import swarm_env.single_env  # import to use with gym.make()
+from swarm_env.single_env.single_agent import SwarmEnv  # import to use with gym.make()
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import (
     VecVideoRecorder,
@@ -22,21 +22,21 @@ import torch
 import random
 
 
-using_wandb = False
+using_wandb = True
 
 config = {
     "algo": "PPO",
-    "total_timesteps": 100_000,
+    "total_timesteps": 500_000,
     "max_steps": 100,
     "num_envs": 4,
 }
 
 env_config = {
-    "id": "SwarmEnv-v0",
     "max_steps": 100,
     "map_name": "Easy",
     "continuous_action": True,
     "fixed_step": 20,
+    "use_exp_map": True,
 }
 
 kwargs_policy = {
@@ -54,6 +54,7 @@ wandb_config = {
     "map": env_config["map_name"],
     "max_step": env_config["max_steps"],
     "fix_step": env_config["fixed_step"],
+    "use_exp_map": env_config["use_exp_map"],
     "algo": config["algo"],
     "policy_kwarg": (
         kwargs_policy["policy_kwargs"] if "policy_kwargs" in kwargs_policy else None
@@ -68,7 +69,7 @@ formatted_date = today.strftime("%d-%m")
 
 
 def make_env():
-    env = gym.make(**env_config)
+    env = SwarmEnv(**env_config)
     env = Monitor(env)
     return env
 
