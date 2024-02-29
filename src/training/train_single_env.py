@@ -22,11 +22,11 @@ import torch
 import random
 
 
-using_wandb = True
+using_wandb = False
 
 config = {
     "algo": "PPO",
-    "total_timesteps": 500_000,
+    "total_timesteps": 100_000,
     "max_steps": 100,
     "num_envs": 4,
 }
@@ -73,19 +73,21 @@ if using_wandb:
 else:
     run = DummyRun()
 
-env = VecVideoRecorder(
-    env,
-    f"videos/{formatted_date}/{run.id}",
-    record_video_trigger=lambda x: x % 5_000 == 0,
-    video_length=config["max_steps"],
-)
+# env = VecVideoRecorder(
+#     env,
+#     f"videos/{formatted_date}/{run.id}",
+#     record_video_trigger=lambda x: x % 5_000 == 0,
+#     video_length=config["max_steps"],
+# )
 
 episodic_callback = EpisodicRewardLogger(verbose=1)
-wandbcallback = WandbCallback(
-    gradient_save_freq=0,
-    model_save_path=f"models/{formatted_date}/{run.id}",
-    verbose=2,
-)
+
+if using_wandb:
+    wandbcallback = WandbCallback(
+        gradient_save_freq=0,
+        model_save_path=f"models/{formatted_date}/{run.id}",
+        verbose=2,
+    )
 
 # Save a checkpoint every 1000 steps
 checkpoint_callback = CheckpointCallback(
@@ -106,10 +108,13 @@ seed = 1
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
+cb_list = [episodic_callback, checkpoint_callback]
+if using_wandb:
+    cb_list.append(wandbcallback)
 
 model.learn(
     total_timesteps=config["total_timesteps"],
-    callback=CallbackList([wandbcallback, episodic_callback, checkpoint_callback]),  # ,
+    callback=CallbackList(cb_list),  # ,
     progress_bar=True,
 )
 
