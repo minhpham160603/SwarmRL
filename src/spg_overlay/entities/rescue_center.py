@@ -7,6 +7,7 @@ from spg.utils.definitions import CollisionTypes
 
 from resources import path_resources
 from spg_overlay.entities.wounded_person import WoundedPerson
+import numpy as np
 
 
 def wounded_rescue_center_collision(arbiter, _, data):
@@ -54,14 +55,19 @@ class RescueCenter(PhysicalElement):
             raise ValueError("RescueCenter is not associated with a playground.")
 
         grasped_by_list = entity.grasped_by.copy()
-        grasped_by_size = len(entity.grasped_by)
-
-        for part in grasped_by_list:
-            agent = part.agent
-            agent.reward += entity.reward / grasped_by_size
-            agent.base.grasper.reset()
-
-        # if not entity.grasped_by:
-        #     agent = self._playground.get_closest_agent(self)
-
+        agents = [x.agent for x in grasped_by_list]
+        if len(agents) > 0:
+            agent = self.get_closest_agent(agents)
+            for a in agents:
+                a.base.grasper.reset()
+        else:
+            agent = self.get_closest_agent(self._playground.agents)
+        agent.reward += 1
         self._playground.remove(entity)
+
+    def get_closest_agent(self, agent_list):
+        agent_pos = [agent.true_position() for agent in agent_list]
+        center_pos = np.array(self.initial_coordinates[0])
+        dist = [np.sqrt(np.sum((pos - center_pos) ** 2)) for pos in agent_pos]
+        idx = np.argmin(dist)
+        return agent_list[idx]

@@ -97,7 +97,7 @@ class MultiSwarmEnv(gym.Env):
         """
         Lidar: 180 + semantic: (1 + n_targets + n_agents - 1) * 3 + pose: 3 + velocity: 2 + grasper: 1  
         """
-        single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5 + 1
+        single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5
         self.observation_space = [
             spaces.Box(low=-np.inf, high=np.inf, shape=(single_action_dim,))
             for _ in range(self.n_agents)
@@ -180,7 +180,7 @@ class MultiSwarmEnv(gym.Env):
 
         # print(lidar.shape, velocity.shape, pose.shape)
         observation = np.concatenate(
-            [lidar, velocity, pose, semantic.flatten(), grasper],
+            [lidar, velocity, pose, semantic.flatten()],
             axis=0,
         ).astype(np.float32)
 
@@ -253,6 +253,7 @@ class MultiSwarmEnv(gym.Env):
 
     def reward(self, agent, action):
         rew = -np.abs(action[2])
+        conflict = 0
         if agent.is_collided():
             rew -= 1
         if agent.touch_human():
@@ -261,8 +262,9 @@ class MultiSwarmEnv(gym.Env):
             magnets = set(human.grasped_by)
             if len(magnets) > 1 and agent.base.grasper in magnets:
                 rew -= 1
+                conflict += 1
                 # print("Conflict!!")
-        return rew
+        return rew, conflict
 
     def step(self, actions):
         self._playground.window.switch_to()
@@ -303,8 +305,11 @@ class MultiSwarmEnv(gym.Env):
                 self._render_frame()
             counter += 1
 
+        conflicts = [0] * self.n_agents
         for i, agent in enumerate(self._agents):
-            rewards[i] += self.reward(agent, actions[i])
+            reward, conflict = self.reward(agent, actions[i])
+            rewards[i] += reward
+            conflicts[i] += conflict
 
         self.current_step += 1
         if self.current_step >= self.max_episode_steps:
@@ -351,6 +356,7 @@ class MultiSwarmEnv(gym.Env):
 
         observations = self._get_obs()
         infos = self._get_info()
+        infos["conflict_count"] = conflicts
 
         # infos["individual_reward"] = rewards
 
