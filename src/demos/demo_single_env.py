@@ -5,11 +5,11 @@ from swarm_env.single_env.single_agent import SwarmEnv
 import arcade
 from tqdm import tqdm
 
-n_targets = 3
+n_targets = 1
 total_ep = 10
 
 env = SwarmEnv(
-    render_mode="human",
+    # render_mode="human",
     max_steps=100,
     fixed_step=20,
     n_targets=n_targets,
@@ -17,15 +17,16 @@ env = SwarmEnv(
 )
 
 # pbar = tqdm(total=total_ep)
+path = "/users/eleves-b/2021/minh.pham/thesis/train-swarm/src/swarmrl/src/training/logs/28-02/6prfgo7u/best_model.zip"
+model = PPO.load(path=path)
 for i in range(total_ep):
     obs, info = env.reset()
     score = 0
     count = 0
     while True:
-        # action, _states = model.predict(obs)
-        action = env.action_space.sample()
+        action, _states = model.predict(obs)
+        # action = env.action_space.sample()
         obs, reward, ter, trunc, info = env.step(action)
-        print(obs["grasper"])
         count += 1
         score += reward
         if trunc or ter:
