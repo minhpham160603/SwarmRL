@@ -293,7 +293,7 @@ class MultiSwarmEnv(gym.Env):
             for i, agent in enumerate(self._agents):
                 if agent.reward != 0:
                     self.current_rescue_count += agent.reward
-                    rewards[i] += 50
+                    rewards[i] += 30
 
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
@@ -315,7 +315,7 @@ class MultiSwarmEnv(gym.Env):
         if self.current_step >= self.max_episode_steps:
             truncated = True
             for i in range(len(rewards)):
-                rewards[i] -= 20
+                rewards[i] -= 10
 
         # SHARED REWARD DEFINITION
         shared_reward = sum(rewards)
