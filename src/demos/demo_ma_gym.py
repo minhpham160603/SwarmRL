@@ -4,8 +4,9 @@ import gc
 from memory_profiler import profile
 
 
+@profile
 def main():
-    num_run = 50
+    num_run = 10
     pbar = tqdm(total=num_run)
 
     env = MultiSwarmEnv(

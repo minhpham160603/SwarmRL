@@ -22,11 +22,11 @@ import torch
 import random
 
 
-using_wandb = True
+using_wandb = False
 
 config = {
     "algo": "PPO",
-    "total_timesteps": 500_000,
+    "total_timesteps": 50_000,
     "max_steps": 100,
     "num_envs": 4,
 }
@@ -36,7 +36,7 @@ env_config = {
     "map_name": "Easy",
     "continuous_action": True,
     "fixed_step": 20,
-    "use_exp_map": True,
+    "use_exp_map": False,
 }
 
 kwargs_policy = {

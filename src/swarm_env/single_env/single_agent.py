@@ -12,6 +12,7 @@ from custom_maps.multiple_rooms import MultiRoom
 from custom_maps.easy import EasyMap
 from swarm_env.constants import *
 import arcade
+import time
 
 """
 Environment for single agent
@@ -184,11 +185,14 @@ class SwarmEnv(gym.Env):
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        arcade.close_window()
-        del self._map
-        del self._agent
-        del self._playground
-        del self.gui
+        if self.ep_count != 0:
+            del self._map
+            del self._agent
+            del self._playground
+            del self.gui
+            arcade.close_window()
+            gc.collect()
+
         self.re_init()
         # gc.collect()
         self.ep_count += 1

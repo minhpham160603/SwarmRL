@@ -1,6 +1,6 @@
 data_dir="./mprof/data"
 img_dir="./mprof/result"
-file_name="2802_sing_main_1_del"
+file_name="2902_new_4"
 
 if [ -d ${data_dir} ]; then
     echo Logging to ${data_dir}

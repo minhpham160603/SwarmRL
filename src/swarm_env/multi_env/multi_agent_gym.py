@@ -226,13 +226,14 @@ class MultiSwarmEnv(gym.Env):
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        if self.ep_count % 1 == 0:
-            arcade.close_window()
+        if self.ep_count != 0:
             del self._map
             del self._agents
             del self._playground
             del self.gui
-            self.re_init()
+            arcade.close_window()
+            gc.collect()
+        self.re_init()
         self.ep_count += 1
         self._playground.window.switch_to()
         self.reset_map()
