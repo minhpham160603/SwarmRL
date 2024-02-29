@@ -95,7 +95,7 @@ class MultiSwarmEnv(gym.Env):
         ### OBSERVATION
 
         """
-        Lidar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
+        Lidar: 180 + semantic: (1 + n_targets + n_agents - 1) * 3 + pose: 3 + velocity: 2 + grasper: 1  
         """
         single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5 + 1
         self.observation_space = [
@@ -170,11 +170,9 @@ class MultiSwarmEnv(gym.Env):
             np.float32
         )
         center, human, drone = agent.process_special_semantic()
-
         semantic[0] = center[0]
         for i in range(min(len(human), self.n_targets)):
             semantic[1 + i] = human[i]
-
         for i in range(min(len(drone), self.n_agents - 1)):
             semantic[1 + self.n_targets + i] = drone[i]
 
@@ -184,7 +182,7 @@ class MultiSwarmEnv(gym.Env):
         observation = np.concatenate(
             [lidar, velocity, pose, semantic.flatten(), grasper],
             axis=0,
-        )
+        ).astype(np.float32)
 
         return observation
 
