@@ -221,7 +221,7 @@ class MultiSwarmEnv(gym.Env):
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
-
+        self.current_rescue_count = 0
         self.current_step = 0
         observation = self._get_obs()
         info = self._get_info()

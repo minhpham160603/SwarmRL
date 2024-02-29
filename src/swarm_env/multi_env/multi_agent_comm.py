@@ -246,6 +246,7 @@ class MultiSwarmEnv(gym.Env):
         for agent in self._agents:
             agent.state["message"] = np.zeros((self.n_targets,))
         self.current_step = 0
+        self.current_rescue_count = 0
         observation = self._get_obs()
         info = self._get_info()
         return observation
