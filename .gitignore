@@ -27,3 +27,6 @@ logs/
 models/
 mprofile*
 mprof/
+mid_layer_env/
+solutions/
+eval/

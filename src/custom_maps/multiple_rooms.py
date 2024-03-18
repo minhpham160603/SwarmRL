@@ -20,8 +20,10 @@ from spg_overlay.entities.rescue_center import (
     RescueCenter,
     wounded_rescue_center_collision,
 )
+from .map_base_class import BaseRLMap
 
-class MultiRoom(MapAbstract):
+
+class MultiRoom(BaseRLMap):
     def __init__(self, zones_config: ZonesConfig = ()):
         super().__init__(zones_config)
         self._time_step_limit = 2000
@@ -31,7 +33,7 @@ class MultiRoom(MapAbstract):
         self._size_area = (800, 800)
         self._drones_pos = []
         # self._wounded_persons_pos = [(200, 0)]
-        self._number_wounded_persons = 0 # len(self._wounded_persons_pos)
+        self._number_wounded_persons = 0  # len(self._wounded_persons_pos)
         # self._wounded_persons: List[WoundedPerson] = []
         # self._rescue_center = RescueCenter(size=(200, 80))
         self._rescue_center_pos = ((-50, -50), 0)
@@ -53,7 +55,7 @@ class MultiRoom(MapAbstract):
         #     wounded_person = WoundedPerson(rescue_center=self._rescue_center)
         #     self._wounded_persons.append(wounded_person)
         #     pos = (self._wounded_persons_pos[i], 0)
-            # playground.add(wounded_person, pos)
+        # playground.add(wounded_person, pos)
 
         # POSITIONS OF THE DRONES
         misc_data = MiscData(

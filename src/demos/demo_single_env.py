@@ -1,6 +1,7 @@
 import gymnasium as gym
 import sys
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC, A2C, TD3
+from sb3_contrib import RecurrentPPO
 from swarm_env.single_env.single_agent import SwarmEnv
 import arcade
 from tqdm import tqdm
@@ -8,39 +9,31 @@ from memory_profiler import profile
 from src.swarmrl.src.custom_maps.easy import EasyMap
 from src.swarmrl.src.swarm_env.single_env.single_drone import SwarmDrone
 import time
+import numpy as np
+import json
+import os
+from training.utils import find_and_construct_path
 
 
-@profile
-def test():
-    pbar = tqdm(total=50)
-    map = EasyMap()
-    playground = map.construct_playground(SwarmDrone)
-    drone = playground.agents[0]
-    action = {drone: {"forward": 0.5}}
-    for i in range(50):
-        for i in range(2000):
-            playground.step(action)
-        playground.reset()
-        pbar.update()
-    arcade.close_window()
-
-
-# @profile
 def main():
-    n_targets = 1
+    path = "../../models/single_agents/intermediate/SAC/ngw5hbgy.zip"
+
+    items = path.split("/")
+    index = items.index("models")
+    algo = items[index + 3]
     total_ep = 10
 
     env = SwarmEnv(
-        render_mode="human",
+        render_mode="rgb_array",
         max_steps=100,
         fixed_step=20,
-        n_targets=n_targets,
-        map_name="Easy",
+        n_targets=1,
+        map_name="MyMapIntermediate01",
+        # size_area=(350, 350),
     )
 
-    # pbar = tqdm(total=total_ep)
-    path = "../../models/single_agents/gingyaum/model.zip"
-    model = PPO.load(path=path)
+    algo_map = {"PPO": PPO, "A2C": A2C, "SAC": SAC, "TD3": TD3, "R_PPO": RecurrentPPO}
+    model = algo_map[algo].load(path=path)
 
     for i in range(total_ep):
         obs, info = env.reset()
@@ -48,16 +41,14 @@ def main():
         count = 0
         while True:
             action, _states = model.predict(obs)
-            # action = env.action_space.sample()
             obs, reward, ter, trunc, info = env.step(action)
             count += 1
             score += reward
             if trunc or ter:
                 print(f"Truc {trunc}, ter: {ter}, return: {score}, steps: {count}")
                 break
-        # pbar.update()
     env.close()
 
 
-main()
-# test()
+if __name__ == "__main__":
+    main()

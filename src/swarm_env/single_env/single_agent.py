@@ -7,6 +7,7 @@ from swarm_env.env_renderer import GuiSR
 from swarm_env.single_env.single_drone import SwarmDrone
 import gc
 from custom_maps.intermediate01 import MyMapIntermediate01
+from custom_maps.map_medium_2 import CustomMedium2
 from custom_maps.corridor import Corridor
 from custom_maps.multiple_rooms import MultiRoom
 from custom_maps.easy import EasyMap
@@ -23,7 +24,7 @@ map_dict = {
     # "Corridor": Corridor,
     # "MultiRoom": MultiRoom,
     # "CustomMedium1": CustomMedium1,
-    # "CustomMedium2": CustomMedium2,
+    "CustomMedium2": CustomMedium2,
     "Easy": EasyMap,
 }
 
@@ -61,23 +62,26 @@ class SwarmEnv(gym.Env):
 
     def __init__(
         self,
-        map_name="Easy",
-        render_mode="rgb_array",
-        max_steps=100,
-        n_targets=1,
-        continuous_action=True,
-        fixed_step=20,
-        use_exp_map=False,
+        map_name: str = "Easy",
+        render_mode: str = "rgb_array",
+        max_steps: int = 100,
+        n_targets: int = 1,
+        continuous_action: int = True,
+        fixed_step: int = 20,
+        use_exp_map: bool = False,
+        size_area: tuple = (300, 300),
     ):
         if map_name in map_dict:
             self.map_name = map_name
-            self._map = map_dict[map_name](num_persons=n_targets)
+            self._map = map_dict[map_name](
+                num_drones=1, num_persons=n_targets, size_area=size_area
+            )
         else:
             raise Exception("Invalid map name")
 
         self.agent_name = "agent_0"
         self.continuous_action = continuous_action
-        assert self._map._number_drones == 1
+        self.size_area = size_area
 
         self._playground = None
         self._agent = None
@@ -177,24 +181,25 @@ class SwarmEnv(gym.Env):
         self._map.reset_drone()
 
     def re_init(self):
-        self._map = self._map = map_dict[self.map_name](num_persons=self.n_targets)
+        self._map = self._map = map_dict[self.map_name](
+            num_drones=1, num_persons=self.n_targets, size_area=self.size_area
+        )
         self.map_size = self._map._size_area
-
         self._playground = self._map.construct_playground(drone_type=SwarmDrone)
         self._agent = self._playground._agents[0]
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        if self.ep_count != 0:
+        if (
+            self.ep_count % 1 == 0
+        ):  # change to self.ep_count == 0 to boost performance, warning: mem leak
             del self._map
             del self._agent
             del self._playground
             del self.gui
             arcade.close_window()
-            gc.collect()
+            self.re_init()
 
-        self.re_init()
-        # gc.collect()
         self.ep_count += 1
         self._playground.window.switch_to()
         self.reset_map()
@@ -226,14 +231,12 @@ class SwarmEnv(gym.Env):
         # ROTATION PENALTY
         reward = -0.5 - np.abs(
             action[2]
-        )  # to discourage the drone from rotate too much
+        )  # to discourage the drone from angualar movement
 
         while counter < self.fixed_step and not done:
             cmd = {self._agent: self.construct_action(action)}
             _, _, _, done = self._playground.step(cmd)
-            if (
-                self._agent.reward != 0
-            ):  # Warning: reward = 0 if the agent do not grasp the person when bring it back to rescue center
+            if self._agent.reward != 0:
                 self.total_rescued += self._agent.reward
             if self.total_rescued == self._map._number_wounded_persons:
                 reward += 50

@@ -14,7 +14,7 @@ from typing import Any, Dict, Generic, Iterable, Iterator, TypeVar
 from pettingzoo import ParallelEnv
 from gymnasium.utils import EzPickle, seeding
 from swarm_env.constants import *
-
+import arcade
 
 """
 Environment for multi agent
@@ -60,6 +60,8 @@ class MultiSwarmEnv(gym.Env):
         continuous_action=True,
         fixed_step=20,
         share_reward=True,
+        use_exp_map=False,
+        use_conflict_reward=False,
     ):
         EzPickle.__init__(
             self,
@@ -84,27 +86,36 @@ class MultiSwarmEnv(gym.Env):
         self.n_agents = n_agents
         self.n_targets = n_targets
 
-        self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)
-        self._agents = self._playground._agents
-        self.name_to_agent = {str(i): a for i, a in enumerate(self._agents)}
-        self.agents = list(self.name_to_agent.keys())
+        self._playground = None
+        self._agents = None
+        self._agents = None
+        self.agents = [i for i in range(n_agents)]
         self.fixed_step = fixed_step
+        self.persons = None
+        self.use_exp_map = use_exp_map
+        self.use_conflict_reward = use_conflict_reward
 
         ### OBSERVATION
 
         """
-        L3idar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
+        Lidar: 180 + semantic: (1 + 3 + 2) * 3 + pose: 3 + velocity: 2 = 203
         """
-        single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5
+        single_observation_dim = (
+            180
+            + (self.n_targets + self.n_agents) * 3
+            + 5
+            + (self.n_agents * self.n_targets)
+            + 1  # encoding for the message from other drones
+        )
         self.observation_space = [
-            spaces.Box(low=-np.inf, high=np.inf, shape=(single_action_dim,))
+            spaces.Box(low=-np.inf, high=np.inf, shape=(single_observation_dim,))
             for _ in range(self.n_agents)
         ]
         self.share_observation_space = [
             spaces.Box(
                 low=-np.inf,
                 high=+np.inf,
-                shape=(single_action_dim * self.n_agents,),
+                shape=(single_observation_dim * self.n_agents,),
                 dtype=np.float32,
             )
             for _ in range(self.n_agents)
@@ -113,7 +124,9 @@ class MultiSwarmEnv(gym.Env):
         # forward, lateral, rotation, grasper
         self.action_space = [
             spaces.Box(
-                low=np.array([-1, -1, -1, 0]), high=np.array([1, 1, 1, 1]), shape=(4,)
+                low=np.array([-1, -1, -1, 0] + [0] * self.n_targets),
+                high=np.array([1, 1, 1, 1] + [1] * self.n_targets),
+                shape=(4 + self.n_targets,),
             )
             for agent_id in self.agents
         ]
@@ -123,8 +136,9 @@ class MultiSwarmEnv(gym.Env):
         self.max_episode_steps = max_episode_steps
         self.last_exp_score = None
         self.render_mode = render_mode
-        self.gui = GuiSR(self._playground, self._map)
+        self.gui = None
         self.clock = None
+        self.ep_count = 0
 
     def get_distance(self, pos_a, pos_b):
         return np.sqrt((pos_a[0] - pos_b[0]) ** 2 + (pos_a[1] - pos_b[1]) ** 2)
@@ -149,20 +163,17 @@ class MultiSwarmEnv(gym.Env):
             "lateral": np.clip(action[1], -1, 1),
             "rotation": np.clip(action[2], -1, 1),
             "grasper": 1 if action[3] > 0.5 else 0,
-        }
+        }, action[4:]
 
     def observe(self, agent_id):
-        agent = self.name_to_agent[agent_id]
-        observation = {}
-        observation["lidar"] = (
-            agent.lidar_values()[:-1].astype(np.float32) / LIDAR_MAX_RANGE
-        )
-        observation["velocity"] = agent.measured_velocity().astype(np.float32)
+        agent = self._agents[agent_id]
+        lidar = agent.lidar_values()[:-1].astype(np.float32) / LIDAR_MAX_RANGE
+        velocity = agent.measured_velocity().astype(np.float32)
         normalized_position = (
             agent.true_position()[0] / self.map_size[0],
             agent.true_position()[1] / self.map_size[1],
         )
-        observation["pose"] = np.concatenate(
+        pose = np.concatenate(
             (normalized_position, [agent.true_angle()]), axis=0
         ).astype(np.float32)
         semantic = np.zeros((1 + self.n_targets + (self.n_agents - 1), 3)).astype(
@@ -177,9 +188,25 @@ class MultiSwarmEnv(gym.Env):
         for i in range(min(len(drone), self.n_agents - 1)):
             semantic[1 + self.n_targets + i] = drone[i]
 
-        observation["semantic"] = semantic
+        messages = np.zeros((self.n_agents, self.n_targets))
+        for i, agent in enumerate(self._agents):
+            messages[i] = agent.state["message"]
 
-        return self.flatten_obs(observation)
+        grasper = [1] if len(self._agents[agent_id].grasped_entities()) > 0 else [0]
+
+        observation = np.concatenate(
+            [
+                lidar,
+                velocity,
+                pose.flatten(),
+                semantic.flatten(),
+                grasper,
+                messages.flatten(),
+            ],
+            axis=0,
+        ).astype(np.float32)
+
+        return observation
 
     def _get_obs(self):
         observations = []
@@ -195,16 +222,14 @@ class MultiSwarmEnv(gym.Env):
 
     def get_agent_info(self, agent_id):
         info = {}
-        info["map_name"] = self.map_name
-        info["wounded_people_pos"] = self._map._wounded_persons_pos
-        info["rescue_zone"] = self._map._rescue_center_pos
-        info["drones_true_pos"] = {
-            agent_id: self.name_to_agent[agent_id].true_position()
-        }
+        info["drones_true_pos"] = {agent_id: self._agents[agent_id].true_position()}
         return info
 
     def _get_info(self):
         infos = {}
+        infos["map_name"] = self.map_name
+        infos["wounded_people_pos"] = self._map._wounded_persons_pos
+        infos["rescue_zone"] = self._map._rescue_center_pos
         for agent_id in self.agents:
             infos[agent_id] = self.get_agent_info(agent_id)
         return infos
@@ -215,16 +240,35 @@ class MultiSwarmEnv(gym.Env):
         self._map.reset_wounded_person()
         self._map.reset_drone()
 
+    def re_init(self):
+        self._map = map_dict[self.map_name](
+            num_drones=self.n_agents, num_persons=self.n_targets
+        )
+        self.map_size = self._map._size_area
+        self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)
+        self._agents = self._map.drones
+        self.gui = GuiSR(self._playground, self._map)
+
     def reset(self, seed=None, options=None):
-        # Reinit GUI
-        gc.collect()
+        if (
+            self.ep_count == 0
+        ):  # change to self.ep_count % 1 == 0 to avoid mem leak, but hurt performance
+            del self._map
+            del self._agents
+            del self._playground
+            del self.gui
+            arcade.close_window()
+            self.re_init()
+        self.ep_count += 1
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
-        self.current_rescue_count = 0
+        for agent in self._agents:
+            agent.state["message"] = np.zeros((self.n_targets,))
         self.current_step = 0
+        self.current_rescue_count = 0
         observation = self._get_obs()
-        info = self._get_info()
+        # info = self._get_info()
         return observation
 
     def render(self, mode=None):
@@ -235,8 +279,16 @@ class MultiSwarmEnv(gym.Env):
     def get_map(self):
         return self._map
 
-    def reward(self, agent, action):
+    def process_order(self):
+        order = []
+        for i in range(self.n_targets):
+            order.append(np.argmax([a.state["message"][i] for a in self._agents]))
+        return order
+
+    def reward(self, idx, action):
+        agent = self._agents[idx]
         rew = -np.abs(action[2])
+        conflict = 0
         if agent.is_collided():
             rew -= 1
         if agent.touch_human():
@@ -244,9 +296,20 @@ class MultiSwarmEnv(gym.Env):
         for human in self._map._wounded_persons:
             magnets = set(human.grasped_by)
             if len(magnets) > 1 and agent.base.grasper in magnets:
-                rew -= 1
-                # print("Conflict!!")
-        return rew
+                if self.use_conflict_reward:
+                    rew -= 1
+                conflict += 1
+
+        ### Reward to instruct drone to respect the order
+        order = self.process_order()
+        for i in range(len(order)):
+            if order[i] == idx:
+                if agent.base.grasper in self._map._wounded_persons[i].grasped_by:
+                    rew += 1
+                else:
+                    rew -= 0  # 0.3
+
+        return rew, conflict
 
     def step(self, actions):
         self._playground.window.switch_to()
@@ -262,11 +325,10 @@ class MultiSwarmEnv(gym.Env):
                 self._map._rescue_center_pos[0],
             )
 
-        # rotate value from -1 to 1, do this to discourage it from rotate to much
-
         commands = {}
         for i, agent in enumerate(self._agents):
-            move = self.construct_action(actions[i])
+            move, msg = self.construct_action(actions[i])
+            agent.state["message"] = msg
             commands[agent] = move
 
         terminated, truncated = False, False
@@ -290,8 +352,11 @@ class MultiSwarmEnv(gym.Env):
                 self._render_frame()
             counter += 1
 
+        conflicts = [0] * self.n_agents
         for i, agent in enumerate(self._agents):
-            rewards[i] += self.reward(agent, actions[i])
+            reward, conflict = self.reward(i, actions[i])
+            rewards[i] += reward
+            conflicts[i] += conflict
 
         self.current_step += 1
         if self.current_step >= self.max_episode_steps:
@@ -301,6 +366,8 @@ class MultiSwarmEnv(gym.Env):
 
         # SHARED REWARD DEFINITION
         shared_reward = sum(rewards)
+        if not truncated:
+            shared_reward = max(shared_reward, -10 * self.n_agents)
 
         delta_distances = 0
         for i, person in enumerate(self._map._wounded_persons):
@@ -315,18 +382,19 @@ class MultiSwarmEnv(gym.Env):
 
         shared_reward -= delta_distances / 5
 
-        current_exp_score = self._map.explored_map.score()
-        if self.last_exp_score is not None:
-            delta_exp_score = current_exp_score - self.last_exp_score
-        else:
-            delta_exp_score = 0
+        if self.use_exp_map:
+            current_exp_score = self._map.explored_map.score()
+            if self.last_exp_score is not None:
+                delta_exp_score = current_exp_score - self.last_exp_score
+            else:
+                delta_exp_score = 0
 
-        self.last_exp_score = current_exp_score
-        # print(f"score {delta_exp_score}, {current_exp_score}")
-        self.gui.update_explore_map()
+            self.last_exp_score = current_exp_score
+            # print(f"score {delta_exp_score}, {current_exp_score}")
+            self.gui.update_explore_map()
 
-        # REWARD
-        shared_reward += 50 * delta_exp_score
+            # REWARD
+            shared_reward += 50 * delta_exp_score
 
         if self.share_reward:
             final_rewards = [[shared_reward]] * self.n_agents
@@ -338,8 +406,8 @@ class MultiSwarmEnv(gym.Env):
 
         observations = self._get_obs()
         infos = self._get_info()
-        for i, agent_id in enumerate(self.agents):
-            infos[agent_id]["individual_reward"] = rewards[i]
+
+        infos["conflict_count"] = conflicts
 
         if self.render_mode == "human":
             self._render_frame()
@@ -354,14 +422,14 @@ class MultiSwarmEnv(gym.Env):
             for name in self.agents:
                 color = (255, 0, 0)
                 offset = 10
-                agent = self.name_to_agent[name]
+                agent = self._agents[name]
                 pt1 = (
                     agent.true_position()
                     + np.array(self.map_size) / 2
                     + np.array([offset, offset])
                 )
                 org = (int(pt1[0]), self.map_size[1] - int(pt1[1]))
-                str_id = name
+                str_id = str(name)
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 image = cv2.putText(
                     image,

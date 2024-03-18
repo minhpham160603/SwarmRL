@@ -11,22 +11,44 @@ from stable_baselines3.common.vec_env import (
     VecVideoRecorder,
     SubprocVecEnv,
 )
-from stable_baselines3.common.callbacks import CallbackList
 import numpy as np
-from utils import EpisodicRewardLogger, DummyRun, AverageReturnCallback
+from utils import DummyRun
 import torch.nn as nn
 from sb3_contrib import RecurrentPPO
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines3.common.callbacks import (
+    CheckpointCallback,
+    EvalCallback,
+    StopTrainingOnRewardThreshold,
+    CallbackList,
+)
 from datetime import datetime
 import torch
 import random
 
 
-using_wandb = False
+import argparse
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Your training script.")
+    parser.add_argument("--seed", type=int, help="Random seed for reproducibility")
+    parser.add_argument("--use_wandb", action="store_true", default=False)
+    parser.add_argument("--use_record", action="store_true", default=False)
+    parser.add_argument("--total_steps", type=int, help="Total timestep to train")
+    # Add other arguments as needed
+    return parser.parse_args()
+
+
+args = parse_arguments()
+
+use_wandb = args.use_wandb
+use_record = args.use_record
+seed = args.seed
 
 config = {
+    "exp_name": "easy_3_target",
     "algo": "PPO",
-    "total_timesteps": 50_000,
+    "total_timesteps": args.total_steps,
     "max_steps": 100,
     "num_envs": 4,
 }
@@ -36,32 +58,28 @@ env_config = {
     "map_name": "Easy",
     "continuous_action": True,
     "fixed_step": 20,
-    "use_exp_map": False,
+    "use_exp_map": True,
+    "size_area": (350, 350),
+    "n_targets": 3,
 }
 
 kwargs_policy = {
     "policy": "MultiInputPolicy",
+    "stats_window_size": 100,
+    "n_steps": 256,
+    "ent_coef": 5e-4,
     "policy_kwargs": {
-        "net_arch": {"pi": [16, 32, 64, 32, 16], "vf": [16, 32, 64, 32, 16]},
+        "net_arch": {"pi": [64, 64], "vf": [64, 64]},
         "activation_fn": nn.ReLU,
         "ortho_init": True,
     },
     "verbose": 1,
 }
 
-wandb_config = {
-    "exp_name": "test_step",
-    "map": env_config["map_name"],
-    "max_step": env_config["max_steps"],
-    "fix_step": env_config["fixed_step"],
-    "use_exp_map": env_config["use_exp_map"],
-    "algo": config["algo"],
-    "policy_kwarg": (
-        kwargs_policy["policy_kwargs"] if "policy_kwargs" in kwargs_policy else None
-    ),
-    "map_size": (300, 300),
-    "min_gen_dist": 120,
-}
+wandb_config = {}
+for x in [config, env_config, kwargs_policy]:
+    for k, v in x.items():
+        wandb_config[k] = v
 
 # Get today's date
 today = datetime.now()
@@ -74,7 +92,6 @@ def make_env():
     return env
 
 
-seed = 1
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
@@ -82,7 +99,7 @@ torch.manual_seed(seed)
 env = SubprocVecEnv([make_env for i in range(config["num_envs"])], start_method="fork")
 
 
-if using_wandb:
+if use_wandb:
     run = wandb.init(
         project="single-env-v2",
         config=wandb_config,
@@ -90,33 +107,33 @@ if using_wandb:
         monitor_gym=True,
         save_code=True,
         name=f"{wandb_config['exp_name']}_{config['algo']}_seed{seed}",
-        # group=config["algo"],
+        group=config["algo"],
     )
 else:
     run = DummyRun()
 
-# env = VecVideoRecorder(
-#     env,
-#     f"videos/{formatted_date}/{run.id}",
-#     record_video_trigger=lambda x: x % 5_000 == 0,
-#     video_length=config["max_steps"],
-# )
+if use_record:
+    env = VecVideoRecorder(
+        env,
+        f"videos/{formatted_date}/{run.id}",
+        record_video_trigger=lambda x: x % 25_000 == 0,
+        video_length=config["max_steps"],
+    )
 
-average_callback = AverageReturnCallback(verbose=1, n_episodes=100)
 wandbcallback = (
     WandbCallback(
         gradient_save_freq=0,
-        model_save_path=f"models/{formatted_date}/{run.id}",
+        model_save_path=f"models/{config['algo']}/{formatted_date}/{run.id}",
         verbose=2,
     )
-    if using_wandb
+    if use_wandb
     else None
 )
 
 # Save a checkpoint every 1000 steps
 checkpoint_callback = CheckpointCallback(
     save_freq=5_000,
-    save_path=f"./checkpoints/{formatted_date}/{run.id}",
+    save_path=f"./checkpoints/{config['algo']}/{formatted_date}/{run.id}",
     name_prefix=f"model_{run.id}",
     save_replay_buffer=True,
     save_vecnormalize=True,
@@ -124,23 +141,25 @@ checkpoint_callback = CheckpointCallback(
 
 eval_callback = EvalCallback(
     env,
-    best_model_save_path=f"./logs/{formatted_date}/{run.id}",
-    log_path=f"./logs/{formatted_date}/{run.id}",
-    eval_freq=10_000,
+    best_model_save_path=f"./eval/{config['algo']}/{formatted_date}/{run.id}",
+    log_path=f"./eval/{config['algo']}/{formatted_date}/{run.id}",
+    eval_freq=5_000,
+    n_eval_episodes=10,
     deterministic=True,
     render=False,
 )
 
+callbacklist = [eval_callback]
+if use_wandb:
+    callbacklist.append(wandbcallback)
+callbacklist = CallbackList(callbacklist)
 
 algo_map = {"PPO": PPO, "SAC": SAC, "A2C": A2C, "R_PPO": RecurrentPPO}
 model = algo_map[config["algo"]](
-    env=env, tensorboard_log=f"runs/{formatted_date}/{run.id}", **kwargs_policy
+    env=env,
+    tensorboard_log=f"runs/{config['algo']}/{formatted_date}/{run.id}",
+    **kwargs_policy,
 )
-
-callbacklist = [average_callback, eval_callback]
-if using_wandb:
-    callbacklist.append(wandbcallback)
-callbacklist = CallbackList(callbacklist)
 
 print("ALGO ", config["algo"])
 print(model.policy)
@@ -150,6 +169,9 @@ model.learn(
     callback=callbacklist,
     progress_bar=True,
 )
+
+print("ALGO ", config["algo"])
+print(model.policy)
 
 env.close()
 run.finish()

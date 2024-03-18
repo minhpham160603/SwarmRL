@@ -92,3 +92,18 @@ class DummyRun:
 
     def finish(self):
         print("Finish training")
+
+
+import os
+
+
+def find_and_construct_path(base_dir, target_dir_name, name="model.zip"):
+    for dirpath, dirnames, filenames in os.walk(base_dir):
+        if target_dir_name in dirnames:
+            target_dir_path = os.path.join(dirpath, target_dir_name)
+            relative_path = os.path.relpath(target_dir_path, start=base_dir)
+            model_path = os.path.join(target_dir_path, name)
+            # print(model_path)
+            if os.path.exists(model_path):
+                return base_dir + "/" + os.path.relpath(model_path, start=base_dir)
+    return None

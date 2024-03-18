@@ -31,7 +31,13 @@ from .map_base_class import BaseRLMap
 
 
 class MyMapIntermediate01(BaseRLMap):
-    def __init__(self, zones_config: ZonesConfig = (), num_drones=1, num_persons=1):
+    def __init__(
+        self,
+        zones_config: ZonesConfig = (),
+        num_drones=1,
+        num_persons=1,
+        size_area=None,
+    ):
         super().__init__(zones_config)
         self._time_step_limit = 2000
         self._real_time_limit = 120
@@ -68,51 +74,3 @@ class MyMapIntermediate01(BaseRLMap):
     def add_wall_and_box(self, playground):
         add_walls(playground)
         add_boxes(playground)
-
-    # def construct_playground(self, drone_type: Type[DroneAbstract]) -> Playground:
-    #     playground = ClosedPlayground(size=self._size_area)
-
-    #     # RESCUE CENTER
-    #     playground.add_interaction(
-    #         CollisionTypes.GEM,
-    #         CollisionTypes.ACTIVABLE_BY_GEM,
-    #         wounded_rescue_center_collision,
-    #     )
-
-    #     playground.add(self._rescue_center, self._rescue_center_pos)
-    #     self.add_wall_and_box(playground)
-
-    #     self._explored_map.initialize_walls(playground)
-
-    #     # DISABLER ZONES
-    #     playground.add_interaction(
-    #         CollisionTypes.DISABLER, CollisionTypes.DEVICE, srdisabler_disables_device
-    #     )
-
-    #     if ZoneType.NO_GPS_ZONE in self._zones_config:
-    #         playground.add(self._no_gps_zone, self._no_gps_zone_pos)
-
-    #     # POSITIONS OF THE WOUNDED PERSONS
-    #     for i in range(self._number_wounded_persons):
-    #         wounded_person = WoundedPerson(rescue_center=self._rescue_center)
-    #         self._wounded_persons.append(wounded_person)
-    #         pos = (self._wounded_persons_pos[i], 0)
-    #         playground.add(wounded_person, pos)
-
-    #     # POSITIONS OF THE DRONES
-    #     misc_data = MiscData(
-    #         size_area=self._size_area, number_drones=self._number_drones
-    #     )
-    #     for i in range(self._number_drones):
-    #         drone = drone_type(identifier=i, misc_data=misc_data)
-    #         self._drones.append(drone)
-    #         playground.add(drone, self._drones_pos[i])
-
-    #     playground.add_interaction(
-    #         CollisionTypes.PART, CollisionTypes.ELEMENT, drone_collision_wall
-    #     )
-    #     playground.add_interaction(
-    #         CollisionTypes.PART, CollisionTypes.PART, drone_collision_drone
-    #     )
-
-    #     return playground

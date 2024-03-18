@@ -9,11 +9,13 @@ import gymnasium as gym
 from swarm_env.multi_env.multi_agent_pettingzoo import MultiSwarmEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 import numpy as np
-from utils import EpisodicRewardLogger
 import torch.nn as nn
 from sb3_contrib import RecurrentPPO
 import supersuit as ss
 from datetime import datetime
+from training.utils import DummyRun
+
+use_wandb = False
 
 config = {
     "algo": "PPO",
@@ -32,9 +34,9 @@ env_config = {
 
 kwargs_PPO = {
     "policy": "MultiInputPolicy",
-    # "learning_rate": 7e-4,
-    # "n_steps": 512,
-    # "ent_coef": 2e-3,
+    "learning_rate": 7e-4,
+    "n_steps": 512,
+    "ent_coef": 2e-3,
     "policy_kwargs": {
         "net_arch": {"pi": [16, 32, 64, 64, 16], "vf": [16, 32, 64, 64, 16]},
         "activation_fn": nn.ReLU,
@@ -48,24 +50,28 @@ env = MultiSwarmEnv(**env_config)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 envs = ss.concat_vec_envs_v1(env, 4, num_cpus=1, base_class="stable_baselines3")
 
-run = wandb.init(
-    project="multi-agent",
-    config=config,
-    sync_tensorboard=True,
-    monitor_gym=True,
-    save_code=True,
-)
-
-
-episodic_callback = EpisodicRewardLogger(verbose=1)
+if use_wandb:
+    run = wandb.init(
+        project="multi-agent",
+        config=config,
+        sync_tensorboard=True,
+        monitor_gym=True,
+        save_code=True,
+    )
+else:
+    run = DummyRun()
 
 date = datetime.now()
 formatted_date = date.strftime("%d-%m")
 
-wandbcallback = WandbCallback(
-    gradient_save_freq=0,
-    model_save_path=f"models/ma/{formatted_date}/{run.id}",
-    verbose=2,
+wandbcallback = (
+    WandbCallback(
+        gradient_save_freq=0,
+        model_save_path=f"models/ma/{formatted_date}/{run.id}",
+        verbose=2,
+    )
+    if use_wandb
+    else None
 )
 
 checkpoint_callback = CheckpointCallback(
@@ -75,6 +81,10 @@ checkpoint_callback = CheckpointCallback(
     save_replay_buffer=True,
     save_vecnormalize=True,
 )
+
+callbacks = [checkpoint_callback]
+if wandbcallback:
+    callbacks.append(wandbcallback)
 
 
 algo_map = {"PPO": PPO, "SAC": SAC, "A2C": A2C, "R_PPO": RecurrentPPO}
@@ -87,7 +97,7 @@ print(model.policy)
 
 model.learn(
     total_timesteps=config["total_timesteps"],
-    callback=CallbackList([wandbcallback, episodic_callback]),
+    callback=CallbackList(callbacks),
     progress_bar=True,
 )
 

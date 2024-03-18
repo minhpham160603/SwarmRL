@@ -1,15 +1,21 @@
 import math
 import random
-from typing import List 
+from typing import List
 from spg_overlay.entities.wounded_person import WoundedPerson
 from spg_overlay.reporting.evaluation import ZonesConfig
-from maps.walls_medium_02 import add_walls, add_boxes
+from .wall_medium_2 import add_walls, add_boxes
 from .map_base_class import BaseRLMap
 from spg_overlay.entities.rescue_center import RescueCenter
 
 
 class CustomMedium2(BaseRLMap):
-    def __init__(self, zones_config: ZonesConfig = (), num_persons=1, num_drones=1):
+    def __init__(
+        self,
+        zones_config: ZonesConfig = (),
+        num_persons=1,
+        num_drones=1,
+        size_area=None,
+    ):
         super().__init__(zones_config)
         self._time_step_limit = 7200
         self._real_time_limit = 720  # In seconds
@@ -38,7 +44,7 @@ class CustomMedium2(BaseRLMap):
         )
 
     def reset_rescue_center(self):
-        pass 
+        pass
 
     def add_wall_and_box(self, playground):
         add_walls(playground)

@@ -61,6 +61,7 @@ class MultiSwarmEnv(gym.Env):
         fixed_step=20,
         share_reward=True,
         use_exp_map=False,
+        use_conflict_reward=False,
     ):
         EzPickle.__init__(
             self,
@@ -91,22 +92,23 @@ class MultiSwarmEnv(gym.Env):
 
         self.fixed_step = fixed_step
         self.use_exp_map = use_exp_map
+        self.use_conflict_reward = use_conflict_reward
 
         ### OBSERVATION
 
         """
         Lidar: 180 + semantic: (1 + n_targets + n_agents - 1) * 3 + pose: 3 + velocity: 2 + grasper: 1  
         """
-        single_action_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5
+        single_obs_dim = 180 + (self.n_targets + self.n_agents) * 3 + 5 + 1
         self.observation_space = [
-            spaces.Box(low=-np.inf, high=np.inf, shape=(single_action_dim,))
+            spaces.Box(low=-np.inf, high=np.inf, shape=(single_obs_dim,))
             for _ in range(self.n_agents)
         ]
         self.share_observation_space = [
             spaces.Box(
                 low=-np.inf,
                 high=+np.inf,
-                shape=(single_action_dim * self.n_agents,),
+                shape=(single_obs_dim * self.n_agents,),
                 dtype=np.float32,
             )
             for _ in range(self.n_agents)
@@ -180,7 +182,7 @@ class MultiSwarmEnv(gym.Env):
 
         # print(lidar.shape, velocity.shape, pose.shape)
         observation = np.concatenate(
-            [lidar, velocity, pose, semantic.flatten()],
+            [lidar, velocity, pose, semantic.flatten(), grasper],
             axis=0,
         ).astype(np.float32)
 
@@ -200,12 +202,12 @@ class MultiSwarmEnv(gym.Env):
 
     def _get_info(self):
         infos = {}
-        # infos["map_name"] = self.map_name
-        # infos["wounded_people_pos"] = self._map._wounded_persons_pos
-        # infos["rescue_zone"] = self._map._rescue_center_pos
-        # infos["drones_true_pos"] = {
-        #     idx: agent.true_position() for idx, agent in enumerate(self._agents)
-        # }
+        infos["map_name"] = self.map_name
+        infos["wounded_people_pos"] = self._map._wounded_persons_pos
+        infos["rescue_zone"] = self._map._rescue_center_pos
+        infos["drones_true_pos"] = {
+            idx: agent.true_position() for idx, agent in enumerate(self._agents)
+        }
         return infos
 
     def reset_map(self):
@@ -224,14 +226,16 @@ class MultiSwarmEnv(gym.Env):
         self.gui = GuiSR(self._playground, self._map)
 
     def reset(self, seed=None, options=None):
-        if self.ep_count != 0:
+        if (
+            self.ep_count == 0
+        ):  # change to self.ep_count % 1 == 0 to avoid mem leak, but hurt performance
             del self._map
             del self._agents
             del self._playground
             del self.gui
             arcade.close_window()
-            gc.collect()
-        self.re_init()
+            self.re_init()
+            # gc.collect()
         self.ep_count += 1
         self._playground.window.switch_to()
         self.reset_map()
@@ -261,7 +265,8 @@ class MultiSwarmEnv(gym.Env):
         for human in self._map._wounded_persons:
             magnets = set(human.grasped_by)
             if len(magnets) > 1 and agent.base.grasper in magnets:
-                rew -= 1
+                if self.use_conflict_reward:
+                    rew -= 1
                 conflict += 1
                 # print("Conflict!!")
         return rew, conflict
@@ -319,6 +324,8 @@ class MultiSwarmEnv(gym.Env):
 
         # SHARED REWARD DEFINITION
         shared_reward = sum(rewards)
+        if not truncated:
+            shared_reward = max(shared_reward, -10 * self.n_agents)
 
         delta_distances = 0
         for i, person in enumerate(self._map._wounded_persons):
