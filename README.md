@@ -19,3 +19,8 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 source ~/.bashrc
 ```
 Otherwise, using Xvfb will solve the problem.
+
+# Example Display 
+SAC in Intermediate map, trained for 500,000 steps.
+
+![intermediate_SAC](intermediate_SAC.gif)
