@@ -19,7 +19,6 @@ logs
 *.so
 training/logs/
 training/checkpoints/
-models/
 env/
 build/
 checkpoints/
@@ -28,10 +27,12 @@ runs/
 videos/
 wandb/
 logs/
-models/
+training/models/
 mprofile*
 mprof/
 mid_layer_env/
 solutions/
 eval/
 mprof/
+spg/
+mem_test.sh

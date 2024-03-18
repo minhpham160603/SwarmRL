@@ -3,16 +3,6 @@ import sys
 from stable_baselines3 import PPO, SAC, A2C, TD3
 from sb3_contrib import RecurrentPPO
 from swarm_env.single_env.single_agent import SwarmEnv
-import arcade
-from tqdm import tqdm
-from memory_profiler import profile
-from src.swarmrl.src.custom_maps.easy import EasyMap
-from src.swarmrl.src.swarm_env.single_env.single_drone import SwarmDrone
-import time
-import numpy as np
-import json
-import os
-from training.utils import find_and_construct_path
 
 
 def main():
@@ -24,7 +14,7 @@ def main():
     total_ep = 10
 
     env = SwarmEnv(
-        render_mode="rgb_array",
+        render_mode="human",
         max_steps=100,
         fixed_step=20,
         n_targets=1,
