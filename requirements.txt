@@ -24,4 +24,6 @@ gymnasium
 pygame
 pettingzoo
 wandb
-stable_baselines3
+stable_baselines3[extra]
+moviepy
+sb3_contrib

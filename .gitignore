@@ -20,6 +20,10 @@ logs
 training/logs/
 training/checkpoints/
 models/
+env/
+build/
+checkpoints/
+dist/
 runs/
 videos/
 wandb/
@@ -30,3 +34,4 @@ mprof/
 mid_layer_env/
 solutions/
 eval/
+mprof/

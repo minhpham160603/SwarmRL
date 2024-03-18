@@ -240,7 +240,6 @@ class MultiSwarmEnv(gym.Env):
         self._playground.window.switch_to()
         self.reset_map()
         self._playground.reset()
-
         self.current_rescue_count = 0
         self.current_step = 0
         observation = self._get_obs()
@@ -302,7 +301,6 @@ class MultiSwarmEnv(gym.Env):
 
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
-                self.current_rescue_count = 0
                 break
 
             if self.render_mode == "human" and counter % frame_skip == 0:
