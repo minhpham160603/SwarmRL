@@ -8,3 +8,14 @@ This project implements the reinforcement learning environment for the Swarm Res
 - Before running, install the required packages: `pip install -r requirements.txt`. It is required to have `spg` (simple_playground) to run the env.
 - The codes to render the env are provided in the `/demos` directory.
 - The codes to train env with Stable Baselines3 are provided in the `/training` directory.
+
+# Trouble shooting
+If you are using Ubuntu and face this problem with libGL: `libGL error: MESA-LOADER: failed to open iris: /usr/lib/dri/iris_dri.so`, try:
+```
+find / -name libstdc++.so.6 2>/dev/null
+
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6 
+
+source ~/.bashrc
+```
+Otherwise, using Xvfb will solve the problem.

@@ -279,7 +279,6 @@ class MultiSwarmEnv(ParallelEnv, EzPickle):
 
             if self.current_rescue_count >= self._map._number_wounded_persons:
                 terminated = True
-                self.current_rescue_count = 0
                 break
 
             if counter % frame_skip == 0:

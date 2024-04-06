@@ -46,7 +46,7 @@ use_record = args.use_record
 seed = args.seed
 
 config = {
-    "exp_name": "easy_3_target",
+    "exp_name": "easy_1_target",
     "algo": "PPO",
     "total_timesteps": args.total_steps,
     "max_steps": 100,
@@ -58,16 +58,15 @@ env_config = {
     "map_name": "Easy",
     "continuous_action": True,
     "fixed_step": 20,
-    "use_exp_map": True,
+    "use_exp_map": False,
     "size_area": (350, 350),
-    "n_targets": 3,
+    "n_targets": 1,
 }
 
 kwargs_policy = {
     "policy": "MultiInputPolicy",
     "stats_window_size": 100,
-    "n_steps": 256,
-    "ent_coef": 5e-4,
+    "n_steps": 128,
     "policy_kwargs": {
         "net_arch": {"pi": [64, 64], "vf": [64, 64]},
         "activation_fn": nn.ReLU,
@@ -160,6 +159,7 @@ model = algo_map[config["algo"]](
     tensorboard_log=f"runs/{config['algo']}/{formatted_date}/{run.id}",
     **kwargs_policy,
 )
+
 
 print("ALGO ", config["algo"])
 print(model.policy)

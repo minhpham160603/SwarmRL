@@ -4,7 +4,7 @@ numpy
 scikit-image
 Pillow
 pytest
-opencv-contrib-python==4.8.0.74
+opencv-python
 matplotlib
 setuptools
 -e git+https://github.com/emmanuel-battesti/simple-playgrounds.git@swarm-rescue-v2#egg=spg
@@ -16,7 +16,6 @@ gym
 arcade==2.6.17
 tripy
 python-statemachine
-
 numba
 coverage
 gprof2dot
@@ -24,4 +23,7 @@ gymnasium
 pygame
 pettingzoo
 wandb
-stable_baselines3
+stable_baselines3[extra]
+sb3_contrib
+moviepy
+tensorboard
