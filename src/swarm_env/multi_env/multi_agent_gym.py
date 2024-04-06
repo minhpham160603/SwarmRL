@@ -130,6 +130,7 @@ class MultiSwarmEnv(gym.Env):
         self.render_mode = render_mode
         self.gui = None
         self.clock = None
+        self.frames = []
 
     def get_distance(self, pos_a, pos_b):
         return np.sqrt((pos_a[0] - pos_b[0]) ** 2 + (pos_a[1] - pos_b[1]) ** 2)
@@ -215,6 +216,7 @@ class MultiSwarmEnv(gym.Env):
         self._map.reset_rescue_center()
         self._map.reset_wounded_person()
         self._map.reset_drone()
+        # self.frames = []
 
     def re_init(self):
         self._map = map_dict[self.map_name](
@@ -242,6 +244,7 @@ class MultiSwarmEnv(gym.Env):
         self._playground.reset()
         self.current_rescue_count = 0
         self.current_step = 0
+        self.frames = []
         observation = self._get_obs()
         # info = self._get_info()
         return observation
@@ -303,9 +306,9 @@ class MultiSwarmEnv(gym.Env):
                 terminated = True
                 break
 
-            if self.render_mode == "human" and counter % frame_skip == 0:
+            if counter % frame_skip == 0:
                 # self._agent.update_grid()
-                self._render_frame()
+                self.frames.append(self._render_frame())
             counter += 1
 
         conflicts = [0] * self.n_agents
@@ -346,7 +349,7 @@ class MultiSwarmEnv(gym.Env):
                 delta_exp_score = 0
 
             self.last_exp_score = current_exp_score
-            # print(f"score {delta_exp_score}, {current_exp_score}")
+
             self.gui.update_explore_map()
             # REWARD
             shared_reward += 50 * delta_exp_score
@@ -369,6 +372,9 @@ class MultiSwarmEnv(gym.Env):
             self._render_frame()
 
         return observations, final_rewards, dones, infos
+
+    def get_all_frames(self):
+        return self.frames
 
     def draw_index(self, image, pos_list):
         for i, pos in enumerate(pos_list):

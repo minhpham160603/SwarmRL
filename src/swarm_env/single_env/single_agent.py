@@ -86,6 +86,7 @@ class SwarmEnv(gym.Env):
         self._playground = None
         self._agent = None
         self.n_targets = n_targets
+        self.frames = []
 
         self.fixed_step = fixed_step
         self.total_rescued = 0
@@ -179,6 +180,7 @@ class SwarmEnv(gym.Env):
         self._map.reset_rescue_center()
         self._map.reset_wounded_person()
         self._map.reset_drone()
+        self.frames = []
 
     def re_init(self):
         self._map = self._map = map_dict[self.map_name](
@@ -214,17 +216,15 @@ class SwarmEnv(gym.Env):
         if self.render_mode == "rgb_array":
             return self._render_frame()
 
+    def get_all_frames(self):
+        return self.frames
+
     def step(self, action):
         self._playground.window.switch_to()
 
         frame_skip = 5
         counter = 0
         done = False
-
-        person_position = self._map._wounded_persons[0].position
-        previous_dist = self.get_distance(
-            (person_position[0], person_position[1]), self._map._rescue_center_pos[0]
-        )
 
         terminated, truncated = False, False
 
@@ -233,28 +233,43 @@ class SwarmEnv(gym.Env):
             action[2]
         )  # to discourage the drone from angualar movement
 
+        prev_distances = [0] * self.n_targets
+        for i, person in enumerate(self._map._wounded_persons):
+            position = person.position
+            prev_distances[i] = self.get_distance(
+                (position[0], position[1]),
+                self._map._rescue_center_pos[0],
+            )
+
         while counter < self.fixed_step and not done:
             cmd = {self._agent: self.construct_action(action)}
             _, _, _, done = self._playground.step(cmd)
+
             if self._agent.reward != 0:
                 self.total_rescued += self._agent.reward
             if self.total_rescued == self._map._number_wounded_persons:
                 reward += 50
                 terminated = True
                 break
-            if self.render_mode == "human" and counter % frame_skip == 0:
-                self._render_frame()
+            if counter % frame_skip == 0:
+                self.frames.append(self._render_frame())
             counter += 1
 
         reward = reward - self._agent.is_collided() + self._agent.touch_human()
 
-        person_position = self._map._wounded_persons[0].position
-        current_dist = self.get_distance(
-            (person_position[0], person_position[1]), self._map._rescue_center_pos[0]
-        )
+        delta_distances = 0
+        for i, person in enumerate(self._map._wounded_persons):
+            position = person.position
+            delta_distances += (
+                self.get_distance(
+                    (position[0], position[1]),
+                    self._map._rescue_center_pos[0],
+                )
+                - prev_distances[i]
+            )
 
         # REWARDED WHEN MOVE PERSON CLOSER TO RECUE CENTER
-        reward -= (current_dist - previous_dist) / 5
+        reward -= delta_distances / 5
         self.current_step += 1
 
         # REWARDED WHEN EXPLORE MORE
@@ -277,9 +292,8 @@ class SwarmEnv(gym.Env):
         info = self._get_info()
         info["reward"] = reward
         info["done"] = truncated or terminated
-
-        if self.render_mode == "human":
-            self._render_frame()
+        if info["done"]:
+            info["ep_frames"] = self.get_all_frames()
 
         return observation, reward, terminated, truncated, info
 
@@ -292,7 +306,6 @@ class SwarmEnv(gym.Env):
             cv2.imshow("Playground Image", image)
             cv2.waitKey(1)
             self.clock.tick(self.metadata["render_fps"])
-
         return image
 
     def close(self):

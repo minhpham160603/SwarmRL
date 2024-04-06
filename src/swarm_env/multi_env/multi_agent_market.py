@@ -27,7 +27,7 @@ map_dict = {
 }
 
 
-class MultiSwarmEnv(gym.Env):
+class MASwarmMarket(gym.Env):
     """
     Oservation
     GPS Position: 2
