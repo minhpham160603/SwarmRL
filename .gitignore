@@ -24,7 +24,7 @@ runs/
 videos/
 wandb/
 logs/
-models/
+# models/
 mprofile*
 mprof/
 mid_layer_env/

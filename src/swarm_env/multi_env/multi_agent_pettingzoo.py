@@ -135,6 +135,7 @@ class MultiSwarmEnv(ParallelEnv, EzPickle):
         self.render_mode = render_mode
         self.gui = GuiSR(self._playground, self._map)
         self.clock = None
+        self.frames = []
 
     def get_distance(self, pos_a, pos_b):
         return np.sqrt((pos_a[0] - pos_b[0]) ** 2 + (pos_a[1] - pos_b[1]) ** 2)
@@ -226,6 +227,7 @@ class MultiSwarmEnv(ParallelEnv, EzPickle):
         self._playground.reset()
         self.current_rescue_count = 0
         self.current_step = 0
+        self.frames = []
         observation = self._get_obs()
         info = self._get_info()
         return observation, info
@@ -280,9 +282,9 @@ class MultiSwarmEnv(ParallelEnv, EzPickle):
                 self.current_rescue_count = 0
                 break
 
-            if self.render_mode == "human" and counter % frame_skip == 0:
+            if counter % frame_skip == 0:
                 # self._agent.update_grid()
-                self._render_frame()
+                self.frames.append(self._render_frame())
             counter += 1
 
         for name in self.possible_agents:
@@ -340,6 +342,9 @@ class MultiSwarmEnv(ParallelEnv, EzPickle):
 
         if self.render_mode == "human":
             self._render_frame()
+
+        if terminated or truncated:
+            infos["ep_frames"] = self.frames
 
         return observations, final_rewards, terminations, truncations, infos
 

@@ -27,7 +27,7 @@ map_dict = {
 }
 
 
-class MultiSwarmEnv(gym.Env):
+class MASwarmTarget(gym.Env):
     """
     Oservation
     GPS Position: 2
@@ -97,6 +97,7 @@ class MultiSwarmEnv(gym.Env):
         self.persons = None
         self.use_exp_map = use_exp_map
         self.use_conflict_reward = use_conflict_reward
+        self.frames = []
 
         ### OBSERVATION
 
@@ -170,6 +171,9 @@ class MultiSwarmEnv(gym.Env):
             "rotation": np.clip(action[2], -1, 1),
             "grasper": 1 if action[3] > 0.5 else 0,
         }, com_target
+
+    def get_all_frames(self):
+        return self.frames
 
     def observe(self, agent_id):
         agent = self._agents[agent_id]
@@ -328,6 +332,8 @@ class MultiSwarmEnv(gym.Env):
 
         while counter < steps and not done:
             _, _, _, done = self._playground.step(commands)
+            if counter % frame_skip == 0:
+                self.frames.append(self._render_frame())
 
             for i, agent in enumerate(self._agents):
                 if agent.reward != 0:
@@ -340,7 +346,6 @@ class MultiSwarmEnv(gym.Env):
                 break
 
             if self.render_mode == "human" and counter % frame_skip == 0:
-                # self._agent.update_grid()
                 self._render_frame()
             counter += 1
 
