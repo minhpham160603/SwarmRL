@@ -10,6 +10,20 @@ This project implements the reinforcement learning environment for the Swarm Res
 - The codes to train env with Stable Baselines3 are provided in the `/training` directory.
 
 # Trouble shooting
+### To run via SSH:
+Running SwarmRL via SSH requires Xvfb. In case you do not have root access on SSH server, you can use this executable version of Xvfb on Linux x86: [Link](https://app.box.com/s/jlhpq6dbet6594a26f71mbuux07jzhoh).
+
+```
+$ ./Xvfb :99 -screen 0 1024x768x24 &
+$ export DISPLAY=:99
+```
+If there is missing shared libraries:
+- Run `ldd ./Xvfb` to check for missing objects.
+- Run `export LD_LIBRARY_PATH=[your_path_to_download]/lib:$LD_LIBRARY_PATH` to add new directory for executable to look for new objects file. (The link above has some objects file that are usually missing, you can add more files to it if missing).
+- Run `ldd ./Xvfb` again to check if the new path is found.
+- Try running the Python program again.
+
+### Miscellanious
 If you are using Ubuntu and face this problem with libGL: `libGL error: MESA-LOADER: failed to open iris: /usr/lib/dri/iris_dri.so`, try:
 ```
 find / -name libstdc++.so.6 2>/dev/null
