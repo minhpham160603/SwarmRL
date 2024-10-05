@@ -1,6 +1,6 @@
 PyYAML
 pymunk>=6.4.0
-numpy
+numpy==1.26.4
 scikit-image
 Pillow
 pytest
@@ -23,7 +23,7 @@ gymnasium
 pygame
 pettingzoo
 wandb
-stable_baselines3[extra]
+stable_baselines3[extra]==2.3.2
 sb3_contrib
 moviepy
 tensorboard
